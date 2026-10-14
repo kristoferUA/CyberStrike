@@ -14,6 +14,7 @@ __MACOSX/
 playground
 tmp
 dist
+dist-*
 ts-dist
 .turbo
 **/.serena

@@ -1,4 +1,5 @@
 import path from "path"
+import fs from "node:fs/promises"
 import { Global } from "../global"
 import z from "zod"
 
@@ -13,6 +14,12 @@ export namespace Auth {
       expires: z.number(),
       accountId: z.string().optional(),
       enterpriseUrl: z.string().optional(),
+      clientId: z.string().optional(),
+      idToken: z.string().optional(),
+      subject: z.string().optional(),
+      email: z.string().optional(),
+      hostId: z.string().optional(),
+      scopes: z.array(z.string()).optional(),
     })
     .meta({ ref: "OAuth" })
 
@@ -56,15 +63,17 @@ export namespace Auth {
   }
 
   export async function set(key: string, info: Info) {
-    const file = Bun.file(filepath)
     const data = await all()
-    await Bun.write(file, JSON.stringify({ ...data, [key]: info }, null, 2), { mode: 0o600 })
+    const temporary = `${filepath}.${crypto.randomUUID()}.tmp`
+    await Bun.write(temporary, JSON.stringify({ ...data, [key]: info }, null, 2), { mode: 0o600 })
+    await fs.rename(temporary, filepath)
   }
 
   export async function remove(key: string) {
-    const file = Bun.file(filepath)
     const data = await all()
     delete data[key]
-    await Bun.write(file, JSON.stringify(data, null, 2), { mode: 0o600 })
+    const temporary = `${filepath}.${crypto.randomUUID()}.tmp`
+    await Bun.write(temporary, JSON.stringify(data, null, 2), { mode: 0o600 })
+    await fs.rename(temporary, filepath)
   }
 }

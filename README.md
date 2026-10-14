@@ -1,3 +1,11 @@
+# CyberStrike CTF fork
+
+This fork is intended for **CTF (Capture The Flag) challenges and authorized training labs**. Use only challenge-provided targets within the event's rules.
+
+Fork additions: a Windows terminal startup fix, ChatGPT plan sign-in without an API key, a portable Windows build and a Codex skill. See the [fork setup guide](docs/ctf-fork.md) or [інструкцію українською](docs/ctf-fork.uk.md).
+
+The feature overview below is inherited from [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Preserve its AGPL-3.0 license when distributing this fork.
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.zh.md">简体中文</a> |
@@ -67,13 +75,17 @@
 
 ### Quick Start
 
-```bash
-npm i -g @cyberstrike-io/cyberstrike@latest && cyberstrike
+```powershell
+git clone --branch feat/chatgpt-plan-windows-startup https://github.com/kristoferUA/CyberStrike.git
+Set-Location CyberStrike
+powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
+.\bin\cyberstrike.cmd auth login
+.\bin\cyberstrike.cmd models openai
 ```
 
-That's it. CyberStrike launches a TUI in your terminal, asks for your LLM provider and API key on first run, and you're ready to go. Tell it what to test — it handles reconnaissance, vulnerability discovery, exploitation, and reporting autonomously.
+Install Git and Bun first. During login, choose **OpenAI → ChatGPT plan (Sign in with ChatGPT)** and approve plan usage in the browser. Choose a model returned by `models openai` and launch with `-m openai/<model-id>`. See [the guide](docs/ctf-fork.md) for running from a challenge directory.
 
-> **Already have a Claude Code or OpenAI subscription?** CyberStrike's intelligence layer sits on top of your existing AI subscription. No separate API costs — your current plan powers an entire pentest toolkit.
+ChatGPT plan access uses the account's available usage and supported models. Successful sign-in does not establish that a model request will succeed; the inference flow still needs an end-to-end check. The upstream npm package and installer do not contain this fork's changes.
 
 Explore the full documentation at **[docs.cyberstrike.io](https://docs.cyberstrike.io)** or visit **[cyberstrike.io](https://cyberstrike.io)** for demos and guides.
 
