@@ -108,6 +108,12 @@ export namespace ProviderAuth {
           if (result.accountId) {
             info.accountId = result.accountId
           }
+          if ("clientId" in result && result.clientId) info.clientId = result.clientId
+          if ("idToken" in result && result.idToken) info.idToken = result.idToken
+          if ("subject" in result && result.subject) info.subject = result.subject
+          if ("email" in result && result.email) info.email = result.email
+          if ("hostId" in result && result.hostId) info.hostId = result.hostId
+          if ("scopes" in result && result.scopes) info.scopes = result.scopes
           await Auth.set(input.providerID, info)
         }
         return

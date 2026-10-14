@@ -143,6 +143,7 @@ export const rpc = {
 }
 
 Rpc.listen(rpc)
+Log.Default.info("TUI RPC ready")
 
 function getAuthorizationHeader(): string | undefined {
   const password = Flag.CYBERSTRIKE_SERVER_PASSWORD

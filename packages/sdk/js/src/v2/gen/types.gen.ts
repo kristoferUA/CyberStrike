@@ -2279,6 +2279,12 @@ export type OAuth = {
   expires: number
   accountId?: string
   enterpriseUrl?: string
+  clientId?: string
+  idToken?: string
+  subject?: string
+  email?: string
+  hostId?: string
+  scopes?: Array<string>
 }
 
 export type ApiAuth = {

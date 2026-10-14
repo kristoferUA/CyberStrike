@@ -78,6 +78,13 @@ export const TuiThreadCommand = cmd({
         describe: "agent to use",
       }),
   handler: async (args) => {
+    Log.Default.debug("TUI startup", {
+      stage: "begin",
+      stdinTTY: process.stdin.isTTY,
+      stdoutTTY: process.stdout.isTTY,
+      columns: process.stdout.columns,
+      rows: process.stdout.rows,
+    })
     // Keep ENABLE_PROCESSED_INPUT cleared even if other code flips it.
     // (Important when running under `bun run` wrappers on Windows.)
     const unguard = win32InstallCtrlCGuard()
@@ -114,10 +121,20 @@ export const TuiThreadCommand = cmd({
           Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
         ),
       })
-      worker.onerror = (e) => {
-        Log.Default.error(e)
-      }
       const client = Rpc.client<typeof rpc>(worker)
+      worker.onerror = (event) => {
+        const error = event as ErrorEvent
+        client.close(new Error(error.message || "TUI worker failed"))
+        Log.Default.error("TUI worker failed", {
+          message: error.message,
+          filename: error.filename,
+          line: error.lineno,
+          column: error.colno,
+          detail: error.error instanceof Error ? error.error.stack : error.error,
+        })
+      }
+      await client.ready
+      Log.Default.debug("TUI startup", { stage: "worker ready" })
       process.on("uncaughtException", (e) => {
         Log.Default.error(e)
       })
@@ -129,6 +146,7 @@ export const TuiThreadCommand = cmd({
       })
 
       const prompt = await iife(async () => {
+        Log.Default.debug("TUI startup", { stage: "read input", stdinTTY: process.stdin.isTTY })
         const piped = !process.stdin.isTTY ? await Bun.stdin.text() : undefined
         if (!args.prompt) return piped
         return piped ? piped + "\n" + args.prompt : args.prompt
@@ -136,6 +154,7 @@ export const TuiThreadCommand = cmd({
 
       // Check if server should be started (port or hostname explicitly set in CLI or config)
       const networkOpts = await resolveNetworkOptions(args)
+      Log.Default.debug("TUI startup", { stage: "network resolved", ...networkOpts })
       const shouldStartServer =
         process.argv.includes("--port") ||
         process.argv.includes("--hostname") ||
@@ -151,7 +170,9 @@ export const TuiThreadCommand = cmd({
       if (shouldStartServer) {
         // Start HTTP server for external access
         try {
+          Log.Default.debug("TUI startup", { stage: "request server" })
           const server = await client.call("server", networkOpts)
+          Log.Default.debug("TUI startup", { stage: "server ready", url: server.url })
           url = server.url
         } catch (e) {
           UI.error(`Failed to start server on port ${networkOpts.port}. The port may already be in use.`)
@@ -165,6 +186,7 @@ export const TuiThreadCommand = cmd({
         events = createEventSource(client)
       }
 
+      Log.Default.debug("TUI startup", { stage: "create interface" })
       const tuiPromise = tui({
         url,
         fetch: customFetch,

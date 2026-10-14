@@ -9,6 +9,10 @@ import { fileURLToPath } from "url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const dir = path.resolve(__dirname, "..")
+const output = process.env.CYBERSTRIKE_DIST_DIR || "dist"
+if (!/^dist(?:-[a-z0-9-]+)?$/.test(output)) throw new Error("CYBERSTRIKE_DIST_DIR must be dist or dist-<name>")
+const outdir = path.resolve(dir, output)
+if (path.dirname(outdir) !== dir) throw new Error("Build output must stay inside the CyberStrike package")
 
 process.chdir(dir)
 
@@ -117,33 +121,34 @@ const allTargets: {
 // CI-only: build just one OS when set (windows/linux/darwin). Empty or "all" = every platform.
 const buildOSRaw = process.env.CYBERSTRIKE_BUILD_OS?.trim()
 const buildOS = buildOSRaw && buildOSRaw !== "all" ? buildOSRaw : undefined
-const targets = (singleFlag
-  ? allTargets.filter((item) => {
-      if (item.os !== process.platform || item.arch !== process.arch) {
-        return false
-      }
+const targets = (
+  singleFlag
+    ? allTargets.filter((item) => {
+        if (item.os !== process.platform || item.arch !== process.arch) {
+          return false
+        }
 
-      // When building for the current platform, prefer a single native binary by default.
-      // Baseline binaries require additional Bun artifacts and can be flaky to download.
-      if (item.avx2 === false) {
-        return baselineFlag
-      }
+        // When building for the current platform, prefer a single native binary by default.
+        // Baseline binaries require additional Bun artifacts and can be flaky to download.
+        if (item.avx2 === false) {
+          return baselineFlag
+        }
 
-      // also skip abi-specific builds for the same reason
-      if (item.abi !== undefined) {
-        return false
-      }
+        // also skip abi-specific builds for the same reason
+        if (item.abi !== undefined) {
+          return false
+        }
 
-      return true
-    })
-  : allTargets
+        return true
+      })
+    : allTargets
 ).filter((item) => {
   if (!buildOS) return true
   const os = item.os === "win32" ? "windows" : item.os
   return os === buildOS
 })
 
-await $`rm -rf dist`
+await fs.promises.rm(outdir, { recursive: true, force: true })
 
 const binaries: Record<string, string> = {}
 if (!skipInstall) {
@@ -162,7 +167,7 @@ for (const item of targets) {
     .filter(Boolean)
     .join("-")
   console.log(`building ${name}`)
-  await $`mkdir -p dist/${name}/bin`
+  await fs.promises.mkdir(path.join(outdir, name, "bin"), { recursive: true })
 
   const parserWorker = fs.realpathSync(path.resolve(dir, "./node_modules/@opentui/core/parser.worker.js"))
   const workerPath = "./src/cli/cmd/tui/worker.ts"
@@ -171,7 +176,7 @@ for (const item of targets) {
   const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
   const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
-  await Bun.build({
+  const result = await Bun.build({
     conditions: ["browser"],
     tsconfig: "./tsconfig.json",
     plugins: [solidPlugin],
@@ -191,7 +196,7 @@ for (const item of targets) {
       autoloadTsconfig: true,
       autoloadPackageJson: true,
       target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/cyberstrike`,
+      outfile: path.join(outdir, name, "bin/cyberstrike"),
       execArgv: [`--user-agent=cyberstrike/${Script.version}`, "--use-system-ca", "--"],
       windows: {},
     },
@@ -205,9 +210,10 @@ for (const item of targets) {
       CYBERSTRIKE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
     },
   })
+  if (!result.success) throw new AggregateError(result.logs, `Failed to build ${name}`)
 
-  await $`rm -rf ./dist/${name}/bin/tui`
-  await Bun.file(`dist/${name}/package.json`).write(
+  await fs.promises.rm(path.join(outdir, name, "bin/tui"), { recursive: true, force: true })
+  await Bun.file(path.join(outdir, name, "package.json")).write(
     JSON.stringify(
       {
         name: `@cyberstrike-io/${name}`,
@@ -233,10 +239,10 @@ for (const item of targets) {
 // ~/.local/share/cyberstrike/node_modules/ and are installed by postinstall.
 // chromium-bidi / electron: excluded for the same reason as in the main build.
 
-await $`mkdir -p dist/hackbrowser-worker`
+await fs.promises.mkdir(path.join(outdir, "hackbrowser-worker"), { recursive: true })
 const workerBuildResult = await Bun.build({
   entrypoints: ["./src/hackbrowser-subprocess/hackbrowser-worker.ts"],
-  outdir: "./dist/hackbrowser-worker",
+  outdir: path.join(outdir, "hackbrowser-worker"),
   target: "node",
   external: ["playwright", "playwright-core", "chromium-bidi", "electron"],
   minify: false,
@@ -252,19 +258,23 @@ console.log("hackbrowser-worker.js built")
 // Copy worker into each platform's bin/ so it's included in release archives.
 // install.sh users get the worker alongside the binary without needing npm.
 for (const key of Object.keys(binaries)) {
-  await $`cp dist/hackbrowser-worker/hackbrowser-worker.js dist/${key}/bin/hackbrowser-worker.js`
+  await fs.promises.copyFile(
+    path.join(outdir, "hackbrowser-worker/hackbrowser-worker.js"),
+    path.join(outdir, key, "bin/hackbrowser-worker.js"),
+  )
 }
 console.log("hackbrowser-worker.js copied to all platform bin/ directories")
 
 if (Script.release) {
   for (const key of Object.keys(binaries)) {
     if (key.includes("linux")) {
-      await $`tar -czf ../../${key}.tar.gz *`.cwd(`dist/${key}/bin`)
+      await $`tar -czf ../../${key}.tar.gz *`.cwd(path.join(outdir, key, "bin"))
     } else {
-      await $`zip -r ../../${key}.zip *`.cwd(`dist/${key}/bin`)
+      await $`zip -r ../../${key}.zip *`.cwd(path.join(outdir, key, "bin"))
     }
   }
-  await $`gh release upload v${Script.version} ./dist/*.zip ./dist/*.tar.gz --clobber`
+  const archives = await Array.fromAsync(new Bun.Glob("*.{zip,tar.gz}").scan({ cwd: outdir, absolute: true }))
+  await $`gh release upload v${Script.version} ${archives} --clobber`
 }
 
 export { binaries }

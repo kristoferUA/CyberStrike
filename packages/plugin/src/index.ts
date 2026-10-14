@@ -115,6 +115,12 @@ export type AuthOuathResult = { url: string; instructions: string } & (
                 access: string
                 expires: number
                 accountId?: string
+                clientId?: string
+                idToken?: string
+                subject?: string
+                email?: string
+                hostId?: string
+                scopes?: string[]
               }
             | { key: string }
           ))
@@ -135,6 +141,12 @@ export type AuthOuathResult = { url: string; instructions: string } & (
                 access: string
                 expires: number
                 accountId?: string
+                clientId?: string
+                idToken?: string
+                subject?: string
+                email?: string
+                hostId?: string
+                scopes?: string[]
               }
             | { key: string }
           ))

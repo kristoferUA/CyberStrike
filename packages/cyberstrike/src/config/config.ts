@@ -32,6 +32,7 @@ import { PackageRegistry } from "@/bun/registry"
 import { proxied } from "@/util/proxied"
 import { iife } from "@/util/iife"
 import { Control } from "@/control"
+import plugin from "../../../plugin/package.json"
 
 export namespace Config {
   const ModelId = z.string().meta({ $ref: "https://models.dev/model-schema.json#/$defs/Model" })
@@ -315,7 +316,7 @@ export namespace Config {
 
   export async function installDependencies(dir: string) {
     const pkg = path.join(dir, "package.json")
-    const targetVersion = Installation.isLocal() ? "*" : Installation.VERSION
+    const targetVersion = Installation.isLocal() ? "*" : plugin.version
 
     const json = await Bun.file(pkg)
       .json()
@@ -374,7 +375,7 @@ export namespace Config {
     const depVersion = dependencies["@cyberstrike-io/plugin"]
     if (!depVersion) return true
 
-    const targetVersion = Installation.isLocal() ? "latest" : Installation.VERSION
+    const targetVersion = Installation.isLocal() ? "latest" : plugin.version
     if (targetVersion === "latest") {
       const isOutdated = await PackageRegistry.isOutdated("@cyberstrike-io/plugin", depVersion, dir)
       if (!isOutdated) return false

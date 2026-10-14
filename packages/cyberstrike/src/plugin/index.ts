@@ -7,7 +7,7 @@ import { Server } from "../server/server"
 import { BunProc } from "../bun"
 import { Instance } from "../project/instance"
 import { Flag } from "../flag/flag"
-import { CodexAuthPlugin } from "./codex"
+import { ChatGPTPlanAuthPlugin } from "./codex"
 import { Session } from "../session"
 import { NamedError } from "@cyberstrike-io/util/error"
 import { CopilotAuthPlugin } from "./copilot"
@@ -21,7 +21,7 @@ export namespace Plugin {
 
   // Built-in plugins that are directly imported (not installed from npm)
   const INTERNAL_PLUGINS: PluginInstance[] = [
-    CodexAuthPlugin,
+    ChatGPTPlanAuthPlugin,
     CopilotAuthPlugin,
     AnthropicAuthPlugin,
     GitlabAuthPlugin as unknown as PluginInstance,
