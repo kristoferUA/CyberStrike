@@ -2,6 +2,8 @@
 
 [English](ctf-fork.md)
 
+**[Повна інструкція встановлення на Windows](windows-setup.uk.md)** — усі кроки від Git і Bun до PATH, ChatGPT, Chromium та розв'язання помилок.
+
 Цей форк призначений для **CTF (Capture The Flag) задач і навчальних лабораторій із дозволом на тестування**. Вкажіть ціль, надану організаторами, файли задачі та правила. Усі дії мають залишатися в цих межах.
 
 ## Встановлення на Windows
@@ -48,7 +50,7 @@ CMD:
 
 ```cmd
 cd /d "D:\CTF\challenge"
-"D:\Tools\CyberStrike\bin\cyberstrike.cmd" -m openai/<model-id-from-models-list>
+"D:\Tools\CyberStrike\bin\cyberstrike.cmd" -m openai/gpt-6-luna
 ```
 
 `cd /d` використовується в CMD. У PowerShell використовуйте `Set-Location`. Програма працює в поточній папці задачі. За бажанням додайте папку `bin` форка до свого PATH.

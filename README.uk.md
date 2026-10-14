@@ -4,7 +4,7 @@
 
 Додано виправлення запуску термінального інтерфейсу на Windows, вхід через підписку ChatGPT без API-ключа, переносиму збірку та скіл для Codex.
 
-**[Встановлення і запуск цього форка](docs/ctf-fork.uk.md)** · [English guide](docs/ctf-fork.md)
+**[Повна інструкція встановлення на Windows](docs/windows-setup.uk.md)** · [Огляд форка](docs/ctf-fork.uk.md) · [English guide](docs/ctf-fork.md)
 
 Опис можливостей нижче успадкований від [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Форк зберігає ліцензію AGPL-3.0. Пакет npm та інсталятор оригінального проєкту не містять цих змін.
 
