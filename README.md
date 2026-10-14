@@ -4,6 +4,8 @@ This fork is intended for **CTF (Capture The Flag) challenges and authorized tra
 
 Fork additions: a Windows terminal startup fix, ChatGPT plan sign-in without an API key, a portable Windows build and a Codex skill. See the [fork setup guide](docs/ctf-fork.md) or [інструкцію українською](docs/ctf-fork.uk.md).
 
+**[Complete Windows setup guide (Українська)](docs/windows-setup.uk.md)** — prerequisites, build, PATH, ChatGPT login, CTF launch, browser setup, updates and troubleshooting.
+
 The feature overview below is inherited from [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Preserve its AGPL-3.0 license when distributing this fork.
 
 <p align="center">

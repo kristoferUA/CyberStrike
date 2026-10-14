@@ -2,6 +2,8 @@
 
 [Українська](ctf-fork.uk.md)
 
+**[Complete Windows setup guide (Ukrainian)](windows-setup.uk.md)** includes prerequisite installation, PATH, ChatGPT sign-in, Chromium, updates and troubleshooting.
+
 This fork is for **CTF (Capture The Flag) challenges and authorized training labs**. Supply the challenge's URL, host or files and its rules before starting. Keep all activity inside that scope.
 
 ## Windows build
@@ -46,7 +48,7 @@ CMD:
 
 ```cmd
 cd /d "D:\CTF\challenge"
-"D:\Tools\CyberStrike\bin\cyberstrike.cmd" -m openai/<model-id-from-models-list>
+"D:\Tools\CyberStrike\bin\cyberstrike.cmd" -m openai/gpt-6-luna
 ```
 
 `cd /d` applies to CMD. Use `Set-Location` in PowerShell. The launcher preserves your current challenge directory. Adding the checkout's `bin` folder to your user PATH is optional.
