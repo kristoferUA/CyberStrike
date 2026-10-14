@@ -15,7 +15,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 .\bin\cyberstrike.cmd --version
 ```
 
-While the changes are in a pull request, check out `feat/chatgpt-plan-windows-startup` before building. The script installs the locked dependencies and compiles a local executable into `packages/cyberstrike/dist-windows/cyberstrike-windows-x64/bin`. It uses a CTF version suffix and does not publish a release. Close this executable before rebuilding. Use `-SkipInstall` only after dependencies are installed; `-ModelsPath <file>` accepts a local models.dev JSON snapshot. Otherwise the build downloads the public model metadata.
+While the changes are in a pull request, check out `feat/chatgpt-plan-windows-startup` before building. The script installs the locked dependencies, compiles a local executable into `packages/cyberstrike/dist-windows/cyberstrike-windows-x64/bin`, and installs Playwright Chromium for HackBrowser. It uses a CTF version suffix and does not publish a release. Close this executable before rebuilding. Use `-SkipInstall` only after dependencies are installed; `-SkipBrowserInstall` skips Chromium setup when it is already installed or you use CDP. `-ModelsPath <file>` accepts a local models.dev JSON snapshot. Otherwise the build downloads the public model metadata.
 
 Run this fork's launcher from the cloned repository; installing the upstream npm package will select the upstream program. For updating this fork, pull its changes and rebuild. The upstream upgrade command is not the update path for this source checkout.
 
@@ -56,6 +56,20 @@ Start with the challenge description, allowed target and desired flag format. In
 ## Codex skill
 
 The reusable skill lives in [`codex-skills/cyberstrike/SKILL.md`](../codex-skills/cyberstrike/SKILL.md). Copy its `cyberstrike` folder into your Codex skills directory (normally `~/.codex/skills`), preserving or reviewing any skill already installed under that name. Start a new Codex chat after installation and invoke `$cyberstrike`.
+
+## HackBrowser setup fix (CTF.2)
+
+If CTF.1 reports `hackbrowser worker not found`, update this branch and rebuild:
+
+```powershell
+git pull --ff-only
+powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
+.\bin\cyberstrike.cmd --version
+```
+
+The version should end in `-ctf.2`. The worker is resolved beside the executable first, and Playwright is resolved from that worker directory. Do not replace the fork with the upstream npm package to fix this error.
+
+For ChatGPT plan access, HackBrowser sends model requests through an authenticated loopback relay to the parent's existing provider connection. The parent keeps OAuth credentials and refresh logic. The child receives only a temporary local capability for one model. JSON callers such as the crawler's planner receive the completed Responses object after the required upstream event stream finishes. This change was compiled; a complete browser crawl through the relay still needs an end-to-end check.
 
 ## What changed
 

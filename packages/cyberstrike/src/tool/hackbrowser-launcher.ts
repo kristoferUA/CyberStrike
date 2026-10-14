@@ -35,6 +35,7 @@ import { Identifier } from "../id/id"
 import { Session } from "../session"
 import { HackbrowserStatus } from "../session/hackbrowser-status"
 import { Global } from "../global"
+import { modelRelay } from "../hackbrowser-subprocess/model-relay"
 import type {
   WorkerOptions,
   WorkerMessage,
@@ -119,6 +120,7 @@ interface PreparedWorker {
   modelInfo: { providerID: string; modelID: string }
   workerPath: string
   runtime: string
+  close: () => void
 }
 
 /**
@@ -129,12 +131,17 @@ interface PreparedWorker {
  * can surface the error to the tool caller without poisoning the slot.
  */
 async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
-  // 1. Locate worker JS — placed by postinstall at Global.Path.bin.
-  const workerPath = path.join(Global.Path.bin, "hackbrowser-worker.js")
-  if (!existsSync(workerPath)) {
+  // Source builds ship the worker beside the executable. npm installations
+  // also keep a copy in the user data directory through postinstall.
+  const candidates = [
+    path.join(path.dirname(process.execPath), "hackbrowser-worker.js"),
+    path.join(Global.Path.bin, "hackbrowser-worker.js"),
+  ]
+  const workerPath = candidates.find((file) => existsSync(file))
+  if (!workerPath) {
     throw new Error(
-      `hackbrowser worker not found at ${workerPath}. ` +
-        `Re-install cyberstrike (npm install -g @cyberstrike-io/cyberstrike) to set it up.`,
+      `hackbrowser worker not found. Checked: ${candidates.join(", ")}. ` +
+        `Rebuild this fork with script/build-windows.ps1.`,
     )
   }
 
@@ -152,58 +159,48 @@ async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
   // from bin/ + NODE_PATH), so no false positives on non-standard installs.
   let playwrightEntry: string
   try {
-    playwrightEntry = await Bun.resolve("playwright", Global.Path.bin)
+    playwrightEntry = await Bun.resolve("playwright", path.dirname(workerPath))
   } catch {
     throw new Error(
-      `playwright is not installed. Run:\n` +
-        `  npm install --prefix ${Global.Path.data} playwright\n` +
-        `  npx playwright install chromium`,
+      `playwright is not installed for the worker at ${workerPath}. ` +
+        `Run script/build-windows.ps1 without -SkipInstall from this fork's checkout.`,
     )
   }
 
-  // 2c. Verify Chromium binary is installed. If missing, attempt automatic
-  // installation via `npx playwright install chromium`. This avoids the common
-  // UX issue where users install cyberstrike but don't know they need Chromium.
-  // Derive the playwright package dir from the RESOLVED entry (2b), not a
-  // hardcoded Global.Path.data path — with hoisted/non-standard installs the
-  // package lives elsewhere and the old assumption produced "Module not found
-  // .../node_modules/playwright/cli.js" while chromium was actually present.
+  // Resolve Chromium through this worker's Playwright package. A CDP run uses
+  // an existing browser and does not require a Playwright Chromium download.
   const playwrightDir = path.dirname(playwrightEntry)
-  try {
-    const { execSync } = await import("child_process")
-    const fullScript = `process.stdout.write(require(${JSON.stringify(playwrightDir.replace(/\\/g, "/"))}).chromium.executablePath())`
-    const chromiumPath = execSync(`${runtime} -e ${JSON.stringify(fullScript)}`, {
-      encoding: "utf-8",
-      timeout: 5000,
-    }).trim()
-    if (!chromiumPath || !existsSync(chromiumPath)) {
-      log.info("chromium not found, attempting auto-install", { chromiumPath })
-      execSync(`${runtime} ${path.join(playwrightDir, "cli.js")} install chromium`, {
-        timeout: 300000,
-        stdio: "pipe",
-        env: { ...process.env, NODE_TLS_REJECT_UNAUTHORIZED: "0" },
-      })
-      log.info("chromium auto-install completed")
+  if (!opts.cdp)
+    try {
+      const fullScript = `process.stdout.write(require(${JSON.stringify(playwrightDir.replace(/\\/g, "/"))}).chromium.executablePath())`
+      const probe = Bun.spawn([runtime, "-e", fullScript], { stdout: "pipe", stderr: "ignore", timeout: 5000 })
+      const chromiumPath = (await new Response(probe.stdout).text()).trim()
+      if ((await probe.exited) !== 0 || !chromiumPath || !existsSync(chromiumPath)) {
+        log.info("chromium not found, attempting auto-install", { chromiumPath })
+        const install = Bun.spawn([runtime, path.join(playwrightDir, "cli.js"), "install", "chromium"], {
+          timeout: 300000,
+          stdout: "ignore",
+          stderr: "pipe",
+        })
+        const error = await new Response(install.stderr).text()
+        if ((await install.exited) !== 0) throw new Error(`Chromium installation failed: ${error.trim()}`)
+        log.info("chromium auto-install completed")
+      }
+    } catch (e) {
+      log.warn("chromium auto-install failed, user may need to install manually", { error: String(e) })
+      throw new Error("Chromium is unavailable. Run script/build-windows.ps1 to install the browser.", { cause: e })
     }
-  } catch (e) {
-    log.warn("chromium auto-install failed, user may need to install manually", { error: String(e) })
-    // Don't throw — let the worker's preflightCheck produce the detailed error
-  }
 
   // 3. Resolve LLM via cyberstrike Provider — extract serializable descriptor
   //    instead of a LanguageModel instance (subprocess.md: model resolution).
   const modelInfo = await Provider.defaultModel()
 
-  // The worker is a separate subprocess and can only receive a *serializable*
-  // credential (an api key or the Anthropic Bearer token). For non-anthropic
-  // OAuth providers (Codex/ChatGPT, Copilot, GitLab-OAuth, …) the real
-  // credential and request shaping live in an in-process fetch closure that
-  // cannot cross the IPC boundary — the descriptor would carry only a
-  // placeholder key, the LLM calls would 401, and the crawl would silently
-  // finish with zero endpoints. Fail fast with an actionable message instead.
+  // ChatGPT uses the parent's OAuth fetch through a scoped loopback relay.
+  // Other OAuth providers still need a supported subprocess adapter.
   const auth = await Auth.get(modelInfo.providerID)
   if (
     auth?.type === "oauth" &&
+    modelInfo.providerID !== "openai" &&
     modelInfo.providerID !== "anthropic" &&
     !modelInfo.providerID.startsWith("github-copilot")
   ) {
@@ -254,7 +251,25 @@ async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
     cdp: opts.cdp,
   }
 
-  return { workerOptions, modelInfo, workerPath, runtime }
+  const provider = await Provider.getProvider(modelInfo.providerID)
+  const bridge =
+    modelInfo.providerID === "openai" && auth?.type === "oauth"
+      ? (() => {
+          if (typeof provider.options.fetch !== "function")
+            throw new Error("Reconnect OpenAI with ChatGPT plan sign-in.")
+          return modelRelay(modelDetails.api.id, provider.options.fetch as typeof fetch)
+        })()
+      : undefined
+  if (bridge) {
+    workerOptions.model = {
+      npm: "@ai-sdk/openai",
+      modelApiId: modelDetails.api.id,
+      supportsTemperature: false,
+      baseURL: bridge.baseURL,
+      apiKey: bridge.apiKey,
+    }
+  }
+  return { workerOptions, modelInfo, workerPath, runtime, close: () => bridge?.close() }
 }
 
 /**
@@ -471,6 +486,7 @@ async function backgroundRun(
       log.error("failed to write hackbrowser-error message", { sessionID, err: String(err2) }),
     )
   } finally {
+    prepared.close()
     activeRuns.delete(sessionID)
     try {
       const s = proc.stdin
@@ -512,12 +528,18 @@ export async function launchHackbrowser(opts: LauncherOptions): Promise<KickOffR
   // Inherits full parent env so AWS/GCP/other provider credentials
   // (AWS_ACCESS_KEY_ID, GOOGLE_APPLICATION_CREDENTIALS, etc.) are
   // available to the worker without explicit forwarding.
-  const proc = Bun.spawn([prepared.runtime, prepared.workerPath], {
-    stdin: "pipe",
-    stdout: "pipe",
-    stderr: "pipe",
-    env: { ...process.env },
-  })
+  let proc: ReturnType<typeof Bun.spawn>
+  try {
+    proc = Bun.spawn([prepared.runtime, prepared.workerPath], {
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+      env: { ...process.env },
+    })
+  } catch (error) {
+    prepared.close()
+    throw error
+  }
 
   activeRuns.set(opts.sessionID, { proc, modelInfo: prepared.modelInfo })
 

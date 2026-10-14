@@ -243,8 +243,7 @@ function emptyCost() {
   return { input: 0, output: 0, cache: { read: 0, write: 0 } }
 }
 
-function planRequest(body: string) {
-  const payload: Record<string, unknown> = JSON.parse(body)
+function planRequest(payload: Record<string, unknown>) {
   if (!payload || typeof payload !== "object" || Array.isArray(payload) || !Array.isArray(payload.input)) {
     throw new Error("ChatGPT plan requests require the conversation history in an input array.")
   }
@@ -271,9 +270,10 @@ function planRequest(body: string) {
     delete payload[key]
   payload.store = false
   payload.stream = true
-  payload.input = payload.input.map((item: Record<string, unknown>) =>
-    item?.role === "system" ? { ...item, role: "developer" } : item,
-  )
+  payload.input = payload.input.map((item: Record<string, unknown>) => {
+    const { id, ...value } = item
+    return value.role === "system" ? { ...value, role: "developer" } : value
+  })
   if (Array.isArray(payload.tools)) {
     const tools = payload.tools as Record<string, unknown>[]
     const local = tools.filter((tool) => tool.type === "function" || tool.type === "custom")
@@ -284,6 +284,56 @@ function planRequest(body: string) {
     }
   }
   return payload
+}
+
+// generateText/generateObject callers expect JSON, while plan usage requires
+// HTTP streaming. Return the completed response only after its terminal event.
+async function completedResponse(response: Response) {
+  if (!response.ok) return response
+  if (!response.body) throw new Error("ChatGPT returned an empty response stream.")
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  try {
+    while (true) {
+      const chunk = await reader.read()
+      if (chunk.done) break
+      buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, "\n")
+      let end: number
+      while ((end = buffer.indexOf("\n\n")) !== -1) {
+        const frame = buffer.slice(0, end)
+        buffer = buffer.slice(end + 2)
+        const data = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trimStart())
+          .join("\n")
+        if (!data || data === "[DONE]") continue
+        const event = JSON.parse(data) as {
+          type: string
+          response?: Record<string, unknown>
+          message?: string
+          code?: string
+        }
+        if (event.type === "response.completed" && event.response) return Response.json(event.response)
+        if (["response.failed", "response.incomplete", "error"].includes(event.type)) {
+          return Response.json(
+            {
+              error: event.response?.error ?? {
+                message: event.message ?? `ChatGPT inference did not complete (${event.type}).`,
+                code: event.code ?? event.type,
+              },
+            },
+            { status: 502 },
+          )
+        }
+      }
+    }
+    throw new Error("ChatGPT stream ended without response.completed.")
+  } finally {
+    await reader.cancel().catch(() => {})
+    reader.releaseLock()
+  }
 }
 
 type CatalogModel = { visibility?: string; slug?: string; display_name?: string }
@@ -402,7 +452,9 @@ export async function ChatGPTPlanAuthPlugin(input: PluginInput): Promise<Hooks> 
 
             const rawBody = init?.body ?? (request ? await request.clone().text() : undefined)
             if (typeof rawBody !== "string") throw new Error("The OpenAI Responses request body is missing.")
-            const payload = planRequest(rawBody)
+            const original: Record<string, unknown> = JSON.parse(rawBody)
+            const streaming = original?.stream === true
+            const payload = planRequest(original)
 
             const headers = new Headers(init?.headers ?? request?.headers)
             headers.delete("authorization")
@@ -415,7 +467,7 @@ export async function ChatGPTPlanAuthPlugin(input: PluginInput): Promise<Hooks> 
               headers.set("authorization", `Bearer ${(await validAuth(current.access)).access}`)
               response = await fetch(parsed, { ...init, method, headers, body: JSON.stringify(payload) })
             }
-            return response
+            return streaming ? response : completedResponse(response)
           },
         }
       },
