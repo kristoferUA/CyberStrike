@@ -26,6 +26,9 @@ export function isAuthError(err: unknown): boolean {
   if (!err || typeof err !== "object") return false
   const e = err as { name?: string; statusCode?: number; lastError?: unknown; errors?: unknown[] }
   if (e.name === "AI_LoadAPIKeyError") return true
+  // Native CLI authentication, quota and process failures require attention;
+  // do not report a successful crawl with an empty plan after such a failure.
+  if (e.name === "ClaudeCodeError") return true
   if (e.statusCode === 401 || e.statusCode === 403) return true
   // AI_RetryError wraps the real cause — unwrap so a retried 401/403 still counts.
   if (e.lastError && isAuthError(e.lastError)) return true

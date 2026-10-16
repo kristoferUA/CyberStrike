@@ -99,6 +99,7 @@ export interface LauncherOptions {
   // Soft signal — forwarded to worker as { type: "abort" } IPC message.
   // INTEGRATION.md §10.6.
   signal?: AbortSignal
+  claude?: { executable: string; model: string }
 }
 
 /**
@@ -147,6 +148,9 @@ async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
 
   // 2. Find a JS runtime to run the worker. Bun preferred; node as fallback.
   const runtime = Bun.which("bun") ?? Bun.which("node")
+  if (opts.claude && !Bun.which("bun")) {
+    throw new Error("Claude Code browser planning requires Bun on PATH. Install Bun, then restart CyberStrike.")
+  }
   if (!runtime) {
     throw new Error("hackbrowser requires bun or node to run the worker process. " + "Install bun: https://bun.sh")
   }
@@ -193,25 +197,28 @@ async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
 
   // 3. Resolve LLM via cyberstrike Provider — extract serializable descriptor
   //    instead of a LanguageModel instance (subprocess.md: model resolution).
-  const modelInfo = await Provider.defaultModel()
+  const modelInfo = opts.claude
+    ? { providerID: "claude-code", modelID: opts.claude.model }
+    : await Provider.defaultModel()
 
   // ChatGPT uses the parent's OAuth fetch through a scoped loopback relay.
   // Other OAuth providers still need a supported subprocess adapter.
-  const auth = await Auth.get(modelInfo.providerID)
+  const auth = opts.claude ? undefined : await Auth.get(modelInfo.providerID)
   if (
     auth?.type === "oauth" &&
     modelInfo.providerID !== "openai" &&
-    modelInfo.providerID !== "anthropic" &&
     !modelInfo.providerID.startsWith("github-copilot")
   ) {
     throw new Error(
       `HackBrowser can't use ${modelInfo.providerID}/${modelInfo.modelID}: its OAuth/subscription auth runs only in the main process and can't be passed to the crawler subprocess. ` +
-        `Use an API-key provider (or Anthropic Pro/Max) as your default model for hackbrowser runs.`,
+        `Use an API-key provider, ChatGPT sign-in, or cyberstrike claude for Claude Code.`,
     )
   }
 
-  const modelDetails = await Provider.getModel(modelInfo.providerID, modelInfo.modelID)
-  const modelDescriptor = await Provider.getModelDescriptor(modelDetails)
+  const modelDetails = opts.claude ? undefined : await Provider.getModel(modelInfo.providerID, modelInfo.modelID)
+  const modelDescriptor = opts.claude
+    ? { npm: "claude-code", modelApiId: opts.claude.model, claudeCodePath: opts.claude.executable }
+    : await Provider.getModelDescriptor(modelDetails!)
   log.info("resolved model for hackbrowser run", {
     provider: modelInfo.providerID,
     model: modelInfo.modelID,
@@ -251,19 +258,19 @@ async function prepareCrawl(opts: LauncherOptions): Promise<PreparedWorker> {
     cdp: opts.cdp,
   }
 
-  const provider = await Provider.getProvider(modelInfo.providerID)
+  const provider = opts.claude ? undefined : await Provider.getProvider(modelInfo.providerID)
   const bridge =
     modelInfo.providerID === "openai" && auth?.type === "oauth"
       ? (() => {
-          if (typeof provider.options.fetch !== "function")
+          if (typeof provider?.options.fetch !== "function")
             throw new Error("Reconnect OpenAI with ChatGPT plan sign-in.")
-          return modelRelay(modelDetails.api.id, provider.options.fetch as typeof fetch)
+          return modelRelay(modelDetails!.api.id, provider.options.fetch as typeof fetch)
         })()
       : undefined
   if (bridge) {
     workerOptions.model = {
       npm: "@ai-sdk/openai",
-      modelApiId: modelDetails.api.id,
+      modelApiId: modelDetails!.api.id,
       supportsTemperature: false,
       baseURL: bridge.baseURL,
       apiKey: bridge.apiKey,
@@ -381,7 +388,7 @@ async function backgroundRun(
               })
 
               let cost: number | undefined
-              if (msg.usage) {
+              if (msg.usage && modelInfo.providerID !== "claude-code") {
                 try {
                   const modelDetails = await Provider.getModel(modelInfo.providerID, modelInfo.modelID)
                   const costInfo = modelDetails.cost

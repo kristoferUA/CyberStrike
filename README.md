@@ -2,9 +2,11 @@
 
 This fork is intended for **CTF (Capture The Flag) challenges and authorized training labs**. Use only challenge-provided targets within the event's rules.
 
-Fork additions: a Windows terminal startup fix, ChatGPT plan sign-in without an API key, a portable Windows build and a Codex skill. See the [fork setup guide](docs/ctf-fork.md) or [інструкцію українською](docs/ctf-fork.uk.md).
+Fork additions: a Windows terminal startup fix, ChatGPT plan sign-in without an API key, native Claude Code subscription mode with CyberStrike MCP tools, a portable Windows build and a Codex skill. See the [fork setup guide](docs/ctf-fork.md) or [інструкцію українською](docs/ctf-fork.uk.md).
 
 **[Complete Windows setup guide (Українська)](docs/windows-setup.uk.md)** — prerequisites, build, PATH, ChatGPT login, CTF launch, browser setup, updates and troubleshooting.
+
+**Claude subscription (CTF.3):** install official Claude Code, run `cyberstrike claude --login`, then `cyberstrike claude --model sonnet` in the challenge directory. This opens native Claude Code with CyberStrike tools over MCP. Authentication stays in Claude Code; plan limits and billing follow your Anthropic account. The CyberStrike TUI's `anthropic/...` provider requires an API key. [Windows guide (Українська)](docs/claude-subscription.uk.md).
 
 The feature overview below is inherited from [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Preserve its AGPL-3.0 license when distributing this fork.
 

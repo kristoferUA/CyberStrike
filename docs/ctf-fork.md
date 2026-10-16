@@ -69,7 +69,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 .\bin\cyberstrike.cmd --version
 ```
 
-The version should end in `-ctf.2`. The worker is resolved beside the executable first, and Playwright is resolved from that worker directory. Do not replace the fork with the upstream npm package to fix this error.
+The fix is included in `-ctf.2` and newer `-ctf.3` builds. The worker is resolved beside the executable first, and Playwright is resolved from that worker directory. Do not replace the fork with the upstream npm package to fix this error.
+
+## Claude subscriptions (CTF.3)
+
+Install official native Claude Code, run `cyberstrike claude --login`, then run `cyberstrike claude --model sonnet` in the challenge directory. This starts the unmodified Claude Code binary with CyberStrike CTF tools over MCP. Native Claude handles authentication, account billing, files, shell commands and tasks. No API key is needed for subscription sign-in; limits and any extra usage follow your Anthropic account settings. The CyberStrike TUI's `anthropic/...` provider still requires an API key. The old direct Claude OAuth adapter has been removed.
+
+HackBrowser uses native `claude -p` for its planner. Captures are stored in CyberStrike and analyzed by Claude through the MCP web tools; API-backed background proxy agents do not run in this mode. Each MCP process creates a new CyberStrike data session. See the [complete Windows guide in Ukrainian](claude-subscription.uk.md). The native subscription and browser flow needs user login and separate end-to-end verification; a build does not establish that result.
 
 For ChatGPT plan access, HackBrowser sends model requests through an authenticated loopback relay to the parent's existing provider connection. The parent keeps OAuth credentials and refresh logic. The child receives only a temporary local capability for one model. JSON callers such as the crawler's planner receive the completed Responses object after the required upstream event stream finishes. This change was compiled; a complete browser crawl through the relay still needs an end-to-end check.
 

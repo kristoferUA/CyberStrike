@@ -2,9 +2,11 @@
 
 Цей форк призначений для **CTF (Capture The Flag) задач і навчальних лабораторій із дозволом на тестування**. Працюйте лише з цілями, наданими організаторами, у межах правил змагання.
 
-Додано виправлення запуску термінального інтерфейсу на Windows, вхід через підписку ChatGPT без API-ключа, переносиму збірку та скіл для Codex.
+Додано виправлення запуску термінального інтерфейсу на Windows, вхід через підписку ChatGPT без API-ключа, режим Claude Code за підпискою з MCP-інструментами CyberStrike, переносиму збірку та скіл для Codex.
 
 **[Повна інструкція встановлення на Windows](docs/windows-setup.uk.md)** · [Огляд форка](docs/ctf-fork.uk.md) · [English guide](docs/ctf-fork.md)
+
+**Claude за підпискою (CTF.3):** встановіть офіційний Claude Code, виконайте `cyberstrike claude --login`, потім `cyberstrike claude --model sonnet` у папці задачі. Відкриється Claude Code з CTF-інструментами CyberStrike через MCP. [Повна інструкція](docs/claude-subscription.uk.md). Ліміти та облік використання визначає ваш обліковий запис Anthropic; провайдер `anthropic/...` у власному TUI потребує API-ключа.
 
 Опис можливостей нижче успадкований від [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Форк зберігає ліцензію AGPL-3.0. Пакет npm та інсталятор оригінального проєкту не містять цих змін.
 
