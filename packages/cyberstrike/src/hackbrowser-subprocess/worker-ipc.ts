@@ -13,26 +13,15 @@ import type { CSEvent } from "@cyberstrike-io/hackbrowser/api"
 export interface ModelDescriptor {
   npm: string
   apiKey?: string
-  // OAuth/subscription Bearer token (Claude Pro/Max, or an sk-ant-oat key).
-  // When set, the worker authenticates via Authorization: Bearer instead of
-  // x-api-key. anthropicBeta carries the beta header that Bearer auth requires.
-  authToken?: string
-  anthropicBeta?: string
-  // Anthropic subscription (Pro/Max) request parity. The OAuth endpoint rejects
-  // requests that lack these with a 429 rate_limit_error (message: "Error"), so
-  // plain @ai-sdk/anthropic is not enough. Computed once in the main process
-  // (single source of truth — subscriptionUserId + AGENT_SDK_PREFIX) and applied
-  // to the request body in the worker's Bearer fetch.
-  anthropicUserId?: string // JSON-stringified metadata.user_id
-  anthropicSystemPrefix?: string // prepended as system[0]
+  // Native Claude Code planner: executable path only, never OAuth credentials.
+  claudeCodePath?: string
   baseURL?: string
   modelApiId: string
   headers?: Record<string, string>
   // From the model catalog's `capabilities.temperature`. When false (recent
   // Claude 4.7+/fable and the GPT-5 family reject sampling params), the worker
   // strips temperature/top_p/top_k before sending. Mirrors what the main
-  // process does in-process (anthropic-subscription-model omits them;
-  // ProviderTransform.temperature returns undefined for such models).
+  // process does in-process (ProviderTransform.temperature).
   supportsTemperature?: boolean
   // GitHub OAuth token (ghu_…) for Copilot. When set, the worker EXCHANGES it
   // for a short-lived Copilot session token (copilot-session.ts) and adds the

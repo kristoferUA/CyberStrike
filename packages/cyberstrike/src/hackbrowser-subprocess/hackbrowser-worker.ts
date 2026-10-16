@@ -15,7 +15,13 @@
 import { createAnthropic } from "@ai-sdk/anthropic"
 import type { LanguageModel } from "ai"
 import { BUNDLED_PROVIDERS } from "../provider/bundled-providers"
-import { exchangeCopilotToken, invalidateCopilotToken, copilotApiBase, copilotHeaders } from "../provider/copilot-session"
+import { claudeModel } from "../provider/claude-code"
+import {
+  exchangeCopilotToken,
+  invalidateCopilotToken,
+  copilotApiBase,
+  copilotHeaders,
+} from "../provider/copilot-session"
 import { runCrawl } from "@cyberstrike-io/hackbrowser/api"
 import type { CrawlOptions, LogRecord, CSEvent } from "@cyberstrike-io/hackbrowser/api"
 import type { ParentMessage, WorkerMessage, WorkerOptions, ModelDescriptor } from "./worker-ipc"
@@ -95,7 +101,7 @@ function installCrashGuards(): void {
 // with a 400. The model catalog flags this via capabilities.temperature; when it
 // is false the worker strips those params from the outgoing request body. This
 // lives at the adapter (fetch) layer — the same place the main process drops
-// them (anthropic-subscription-model omits them; ProviderTransform.temperature
+// them (ProviderTransform.temperature
 // returns undefined for such models) — and is keyed on the capability, not on a
 // provider name, so it generalizes to any model that advertises temperature:false.
 function stripSamplingParams(body: BodyInit | null | undefined): BodyInit | null | undefined {
@@ -114,35 +120,6 @@ function stripSamplingParams(body: BodyInit | null | undefined): BodyInit | null
   return body
 }
 
-// Anthropic Bearer (subscription/OAT) request transform: optionally strip
-// unsupported sampling params, and inject the subscription parity the OAuth
-// endpoint requires — metadata.user_id and the Agent SDK system[0] prefix.
-// Without parity the endpoint replies 429 rate_limit_error (message "Error").
-function applyAnthropicBearerBody(
-  body: BodyInit | null | undefined,
-  opts: { stripSampling: boolean; userId?: string; systemPrefix?: string },
-): BodyInit | null | undefined {
-  if (typeof body !== "string") return body
-  try {
-    const j = JSON.parse(body) as Record<string, any>
-    if (opts.stripSampling) {
-      delete j["temperature"]
-      delete j["top_p"]
-      delete j["top_k"]
-    }
-    if (opts.userId) j["metadata"] = { ...(j["metadata"] ?? {}), user_id: opts.userId }
-    if (opts.systemPrefix) {
-      const prefix = { type: "text", text: opts.systemPrefix }
-      if (Array.isArray(j["system"])) j["system"] = [prefix, ...j["system"]]
-      else if (typeof j["system"] === "string") j["system"] = [prefix, { type: "text", text: j["system"] }]
-      else if (j["system"] == null) j["system"] = [prefix]
-    }
-    return JSON.stringify(j)
-  } catch {
-    return body
-  }
-}
-
 // Mirror of provider.ts's shouldUseCopilotResponsesApi / isGpt5OrLater. Kept local rather than
 // imported because this worker is a standalone bundle that must not pull in the heavy provider
 // module. GPT-5+ Copilot models are served on the Responses API, not Chat Completions; gpt-5-mini
@@ -153,7 +130,8 @@ function shouldUseCopilotResponsesApi(modelID: string): boolean {
   return match !== null && Number(match[1]) >= 5 && !modelID.startsWith("gpt-5-mini")
 }
 
-function createModelFromDescriptor(desc: ModelDescriptor): LanguageModel {
+function createModelFromDescriptor(desc: ModelDescriptor, signal: AbortSignal): LanguageModel {
+  if (desc.claudeCodePath) return claudeModel(desc.claudeCodePath, desc.modelApiId, signal)
   const stripSampling = desc.supportsTemperature === false
 
   // Fetch wrapper that drops unsupported sampling params (used by the branches
@@ -164,31 +142,6 @@ function createModelFromDescriptor(desc: ModelDescriptor): LanguageModel {
     : undefined
 
   if (desc.npm.includes("anthropic")) {
-    // OAuth/subscription (or sk-ant-oat): authenticate via Authorization: Bearer.
-    // @ai-sdk/anthropic has no authToken option and sends x-api-key by default,
-    // so swap the header (and add the beta header) in a custom fetch.
-    if (desc.authToken) {
-      const token = desc.authToken
-      const beta = desc.anthropicBeta
-      const opts: Record<string, unknown> = {
-        apiKey: "placeholder", // x-api-key is deleted in the fetch below
-        fetch: (url: any, init?: any) => {
-          const headers = new Headers(init?.headers)
-          headers.delete("x-api-key")
-          headers.set("authorization", `Bearer ${token}`)
-          if (beta) headers.set("anthropic-beta", beta)
-          const body = applyAnthropicBearerBody(init?.body, {
-            stripSampling,
-            userId: desc.anthropicUserId,
-            systemPrefix: desc.anthropicSystemPrefix,
-          })
-          return fetch(url, { ...init, headers, body })
-        },
-      }
-      if (desc.baseURL) opts.baseURL = desc.baseURL
-      if (desc.headers) opts.headers = desc.headers
-      return createAnthropic(opts as Parameters<typeof createAnthropic>[0])(desc.modelApiId)
-    }
     const opts: Record<string, unknown> = {}
     if (desc.apiKey) opts.apiKey = desc.apiKey
     if (desc.baseURL) opts.baseURL = desc.baseURL
@@ -240,9 +193,7 @@ function createModelFromDescriptor(desc: ModelDescriptor): LanguageModel {
     // model, so GPT-5 planner calls hit the wrong endpoint and every plan failed. Mirror the main
     // process. For non-GPT-5 models sdk.chat === the old sdk.languageModel, so they are unchanged.
     if (sdk.responses === undefined && sdk.chat === undefined) return sdk.languageModel(desc.modelApiId)
-    return shouldUseCopilotResponsesApi(desc.modelApiId)
-      ? sdk.responses(desc.modelApiId)
-      : sdk.chat(desc.modelApiId)
+    return shouldUseCopilotResponsesApi(desc.modelApiId) ? sdk.responses(desc.modelApiId) : sdk.chat(desc.modelApiId)
   }
 
   // Every other provider: resolve the SDK factory from the SHARED provider map
@@ -294,7 +245,7 @@ function buildCrawlOptions(opts: WorkerOptions, signal: AbortSignal): CrawlOptio
     send({ type: "event", event })
   }
 
-  const model = createModelFromDescriptor(opts.model)
+  const model = createModelFromDescriptor(opts.model, signal)
 
   const credentialFields: Partial<CrawlOptions> = (() => {
     const d = opts.credentialDispatch

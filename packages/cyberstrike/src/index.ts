@@ -29,6 +29,8 @@ import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { ProviderCommand } from "./cli/cmd/provider"
 import { SkillCommand } from "./cli/cmd/skill"
+import { ClaudeCommand } from "./cli/cmd/claude"
+import { ClaudeToolsCommand } from "./cli/cmd/claude-tools"
 import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
@@ -84,14 +86,16 @@ const cli = yargs(hideBin(process.argv))
 
     const marker = path.join(Global.Path.data, "cyberstrike.db")
     if (!(await Bun.file(marker).exists())) {
-      console.log("Performing one time database migration, may take a few minutes...")
-      const tty = process.stdout.isTTY
+      // MCP stdio reserves stdout exclusively for protocol messages.
+      const output = opts._[0] === "claude-tools" ? process.stderr : process.stdout
+      output.write("Performing one time database migration, may take a few minutes...\n")
+      const tty = output.isTTY
       const width = 36
       const orange = "\x1b[38;5;214m"
       const muted = "\x1b[0;2m"
       const reset = "\x1b[0m"
       let last = -1
-      if (tty) process.stdout.write("\x1b[?25l")
+      if (tty) output.write("\x1b[?25l")
       try {
         await JsonMigration.run(Database.Client().$client, {
           progress: (event) => {
@@ -101,22 +105,22 @@ const cli = yargs(hideBin(process.argv))
             if (tty) {
               const fill = Math.round((percent / 100) * width)
               const bar = `${"■".repeat(fill)}${"･".repeat(width - fill)}`
-              process.stdout.write(
+              output.write(
                 `\r${orange}${bar} ${percent.toString().padStart(3)}%${reset} ${muted}${event.label.padEnd(12)} ${event.current}/${event.total}${reset}`,
               )
-              if (event.current === event.total) process.stdout.write("\n")
+              if (event.current === event.total) output.write("\n")
             } else {
-              console.log(`sqlite-migration:${percent}`)
+              output.write(`sqlite-migration:${percent}\n`)
             }
           },
         })
       } finally {
-        if (tty) process.stdout.write("\x1b[?25h")
+        if (tty) output.write("\x1b[?25h")
         else {
-          console.log(`sqlite-migration:done`)
+          output.write(`sqlite-migration:done\n`)
         }
       }
-      console.log("Database migration complete.")
+      output.write("Database migration complete.\n")
     }
   })
   .usage("\n" + UI.logo())
@@ -144,6 +148,8 @@ const cli = yargs(hideBin(process.argv))
   .command(SessionCommand)
   .command(ProviderCommand)
   .command(SkillCommand)
+  .command(ClaudeCommand)
+  .command(ClaudeToolsCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

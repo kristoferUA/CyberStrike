@@ -16,9 +16,6 @@ import { Flag } from "../flag/flag"
 import { iife } from "@/util/iife"
 import { Global } from "../global"
 import path from "path"
-import { createHash } from "node:crypto"
-import { getAnthropicAccountUuid, getValidAnthropicToken } from "../auth/anthropic-oauth"
-import { createAnthropicSubscriptionModel, SUBSCRIPTION_BETAS, AGENT_SDK_PREFIX } from "./anthropic-subscription-model"
 
 // Bundled provider → SDK-factory map. The value table lives in
 // ./bundled-providers (a leaf module shared with the hackbrowser worker
@@ -54,67 +51,21 @@ export namespace Provider {
     options?: Record<string, any>
   }>
 
-  // Subscription request metadata parity with Claude Code (metadata.user_id is
-  // a JSON-stringified object). device_id is stable per machine; account_uuid is
-  // fetched from the OAuth profile (passed in); session_id is per process.
-  let _deviceId: string | undefined
-  let _sessionId: string | undefined
-  function subscriptionUserId(accountUuid?: string): string {
-    if (!_deviceId) {
-      try {
-        _deviceId = createHash("sha256").update(`${os.hostname()}:${os.userInfo().username}`).digest("hex").slice(0, 32)
-      } catch {
-        _deviceId = "cyberstrike"
-      }
-    }
-    if (!_sessionId) {
-      try {
-        _sessionId = crypto.randomUUID()
-      } catch {
-        _sessionId = "00000000-0000-0000-0000-000000000000"
-      }
-    }
-    return JSON.stringify({
-      device_id: _deviceId,
-      ...(accountUuid ? { account_uuid: accountUuid } : {}),
-      session_id: _sessionId,
-    })
-  }
-
   const CUSTOM_LOADERS: Record<string, CustomLoader> = {
     async anthropic(input) {
-      // Check if the stored key is an OAuth Access Token (sk-ant-oat*)
-      // OAT tokens require Authorization: Bearer + Claude Code identity headers
-      // @ai-sdk/anthropic doesn't support authToken, so we use custom fetch
       const auth = await Auth.get(input.id)
       const key = (
-        input.env.map((item) => Env.all()[item]).find(Boolean) ?? (auth?.type === "api" ? auth.key : undefined)
+        input.options?.apiKey ??
+        input.env.map((item) => Env.all()[item]).find(Boolean) ??
+        (auth?.type === "api" ? auth.key : undefined)
       )?.trim()
-      const explicitOAT = key?.startsWith("sk-ant-oat") ? key : undefined
-      // Subscription (Claude Pro/Max): cyberstrike's own OAuth credential,
-      // stored in auth.json via the AnthropicAuthPlugin login flow. The token is
-      // fetched and auto-refreshed per request inside the custom adapter.
-      const oauthSubscription = !explicitOAT && auth?.type === "oauth"
-
-      if (explicitOAT || oauthSubscription) {
-        // Subscription path: use the OFFICIAL @anthropic-ai/sdk (via a custom
-        // LanguageModelV2) instead of @ai-sdk/anthropic — byte-identical to the
-        // genuine client (real x-stainless signature, ?beta=true, AGENT_SDK_PREFIX
-        // system[0], Bearer OAuth). Resolve the account UUID once (from the OAuth
-        // profile) for metadata.user_id parity; non-fatal if it fails.
-        const accountUuid = await getAnthropicAccountUuid().catch(() => undefined)
+      if (key?.startsWith("sk-ant-oat") || (!key && auth?.type === "oauth")) {
         return {
           autoload: true,
-          options: {},
-          async getModel(_sdk: any, mdl: string) {
-            // Only reasoning models (opus/sonnet) accept adaptive thinking /
-            // context_management / output_config; gate on the capability so we
-            // never send fields haiku rejects.
-            const supportsThinking = !!(input.models?.[mdl] as any)?.reasoning
-            return createAnthropicSubscriptionModel(mdl, {
-              userId: () => subscriptionUserId(accountUuid),
-              supportsThinking,
-            })
+          async getModel() {
+            throw new Error(
+              "Claude subscription access uses native Claude Code. Run cyberstrike claude --login, then cyberstrike claude. The Anthropic TUI provider requires an API key.",
+            )
           },
         }
       }
@@ -123,8 +74,7 @@ export namespace Provider {
         autoload: false,
         options: {
           headers: {
-            "anthropic-beta":
-              "claude-code-20250219,interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
+            "anthropic-beta": "interleaved-thinking-2025-05-14,fine-grained-tool-streaming-2025-05-14",
           },
         },
       }
@@ -1238,14 +1188,10 @@ export namespace Provider {
   export async function getModelDescriptor(model: Model): Promise<{
     npm: string
     apiKey?: string
-    authToken?: string
-    anthropicBeta?: string
     baseURL?: string
     modelApiId: string
     headers?: Record<string, string>
     supportsTemperature?: boolean
-    anthropicUserId?: string
-    anthropicSystemPrefix?: string
     copilotToken?: string
     copilotEnterpriseDomain?: string
   }> {
@@ -1259,34 +1205,13 @@ export namespace Provider {
         ? { ...(options["headers"] as Record<string, string> | undefined), ...model.headers }
         : undefined
 
-    // Anthropic OAuth/subscription (or an sk-ant-oat key) authenticates with a
-    // Bearer token, not x-api-key. The apiKey-only descriptor couldn't carry it,
-    // so subscription crawls failed with "API key missing". Pass the Bearer token
-    // (+ the safe beta set — never context-1m) so the worker can use it. Other
-    // providers and api-key Anthropic fall through to the apiKey path unchanged.
     if (model.providerID === "anthropic") {
-      // Single source of truth for the subscription Bearer token: getValidAnthropicToken
-      // yields the OAuth access token (type:"oauth", auto-refreshed) OR an sk-ant-oat
-      // pasted as an api key (type:"api"). A normal sk-ant-api key returns null here
-      // and falls through to the x-api-key path below.
-      const token = (await getValidAnthropicToken()) ?? undefined
-      if (token) {
-        // Subscription request parity (same data the in-process subscription
-        // model sends). Without metadata.user_id + the Agent SDK system prefix,
-        // the OAuth endpoint returns 429 rate_limit_error. account_uuid is
-        // best-effort (non-fatal if the profile lookup fails).
-        const accountUuid = await getAnthropicAccountUuid().catch(() => undefined)
-        return {
-          npm: model.api.npm,
-          authToken: token,
-          anthropicBeta: SUBSCRIPTION_BETAS.join(","),
-          anthropicUserId: subscriptionUserId(accountUuid),
-          anthropicSystemPrefix: AGENT_SDK_PREFIX,
-          baseURL: options["baseURL"] as string | undefined,
-          modelApiId: model.api.id,
-          headers: mergedHeaders,
-          supportsTemperature: model.capabilities.temperature,
-        }
+      const auth = await Auth.get(model.providerID)
+      const key = options["apiKey"] as string | undefined
+      if (key?.startsWith("sk-ant-oat") || (!key && auth?.type === "oauth")) {
+        throw new Error(
+          "Use cyberstrike claude for a Claude subscription, or configure an Anthropic API key for TUI mode.",
+        )
       }
     }
 

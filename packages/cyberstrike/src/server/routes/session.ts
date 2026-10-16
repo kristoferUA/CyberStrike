@@ -3,6 +3,7 @@ import { stream } from "hono/streaming"
 import { describeRoute, validator, resolver } from "hono-openapi"
 import z from "zod"
 import { Session } from "../../session"
+import { Identifier } from "../../id/id"
 import { MessageV2 } from "../../session/message-v2"
 import { SessionPrompt } from "../../session/prompt"
 import { SessionCompaction } from "../../session/compaction"
@@ -174,11 +175,7 @@ export function renderAccessContextLines(accessContext: AccessContextInput): str
 // with any capture-time label. This is the Firefox fix: Firefox traffic has no
 // page_visited_by at capture time, but request_observation carries per-credential
 // reachability for both paths. Merged, distinct, label-resolved.
-export function getVisitedByForKeyHash(
-  sessionID: string,
-  keyHash: string,
-  captureVisitedBy?: string[],
-): string[] {
+export function getVisitedByForKeyHash(sessionID: string, keyHash: string, captureVisitedBy?: string[]): string[] {
   const obs = Observation.listByKeyHash(sessionID, keyHash)
   const ids = [...new Set(obs.map((o) => o.credential_id).filter((id): id is string => !!id))]
   const labels = ids.map((id) => WebCredential.getById(id)?.label ?? id)
@@ -324,17 +321,21 @@ async function runNormalize(
   dryRun: boolean,
 ): Promise<Normalize.RunResult | null> {
   const scheme = body.scheme ?? inferScheme(body.text)
-  const model = body.model ?? (await SessionPrompt.lastModel(sessionID))
+  const external = process.env.CYBERSTRIKE_EXTERNAL_ANALYSIS === "true"
+  const model = external
+    ? { providerID: "claude-code", modelID: "external" }
+    : (body.model ?? (await SessionPrompt.lastModel(sessionID)))
 
   // Dry-run uses a no-op classifier so Tier 3 never reaches the LLM. Tier 1
   // still resolves the common cases; ambiguous segments fall back to literal.
-  const client = dryRun
-    ? {
-        async classify() {
-          return { decisions: [], model: "dry-run" }
-        },
-      }
-    : undefined
+  const client =
+    dryRun || external
+      ? {
+          async classify() {
+            return { decisions: [], model: external ? "external" : "dry-run" }
+          },
+        }
+      : undefined
 
   try {
     return await Normalize.run({
@@ -1299,7 +1300,11 @@ export const SessionRoutes = lazy(() =>
             return coverage ? `${coverage}\n\n${base}` : base
           }
 
-          if (ingestDryRun) {
+          if (process.env.CYBERSTRIKE_EXTERNAL_ANALYSIS === "true") {
+            // Captures are available to the native Claude MCP client. No
+            // implicit API model, proxy subagent or subscription-token relay.
+            Request.updateStatus({ id: req.id, status: "processed" })
+          } else if (ingestDryRun) {
             // Log the prompt that would be sent to LLM — skip actual LLM call
             log.info("ingest dry-run", {
               sessionID,
@@ -1344,7 +1349,24 @@ export const SessionRoutes = lazy(() =>
         } else {
           // Non-HTTP request (plain text message)
           const promptText = buildPromptWithCredentialContext(body.text, credentialID)
-          if (ingestDryRun) {
+          if (process.env.CYBERSTRIKE_EXTERNAL_ANALYSIS === "true") {
+            await Session.updateMessage({
+              id: Identifier.ascending("message"),
+              sessionID,
+              role: "user",
+              time: { created: Date.now() },
+              agent: "cyberstrike",
+              model: { providerID: "claude-code", modelID: "external" },
+            }).then((message) =>
+              Session.updatePart({
+                id: Identifier.ascending("part"),
+                sessionID,
+                messageID: message.id,
+                type: "text",
+                text: promptText,
+              }),
+            )
+          } else if (ingestDryRun) {
             log.info("ingest dry-run (text)", { sessionID })
             log.info("prompt preview:\n" + promptText)
           } else {
