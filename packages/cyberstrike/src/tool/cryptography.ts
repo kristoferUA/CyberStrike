@@ -152,8 +152,20 @@ export const CryptoReferenceTool = Tool.define("crypto_reference", {
     action: z.enum(["list", "read", "search"]).default("list"),
     topic: z.enum(CRYPTO_REFERENCES).optional(),
     query: z.string().min(2).max(200).optional(),
-    start_line: z.number().int().min(1).default(1),
-    lines: z.number().int().min(1).max(400).default(160),
+    start_line: z
+      .number()
+      .int()
+      .min(0)
+      .default(1)
+      .transform((value) => value || 1),
+    lines: z
+      .number()
+      .int()
+      .min(0)
+      .max(400)
+      .default(160)
+      .transform((value) => value || 160)
+      .describe("Read length; 0 uses the default 160, and the field is ignored for search/list"),
     limit: z
       .number()
       .int()

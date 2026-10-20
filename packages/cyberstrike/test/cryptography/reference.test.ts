@@ -5,6 +5,20 @@ import { CRYPTO_REFERENCES } from "../../src/cryptography/catalog"
 import { CryptoReferenceTool } from "../../src/tool/cryptography"
 
 describe("crypto reference search", () => {
+  test("normalizes unused zero line fields without rejecting a search", async () => {
+    const tool = await CryptoReferenceTool.init()
+    expect(
+      tool.parameters.parse({
+        action: "search",
+        query: "RSA weak primes factoring shared prime small d leak",
+        start_line: 0,
+        lines: 0,
+        limit: 5,
+      }),
+    ).toMatchObject({ action: "search", start_line: 1, lines: 160, limit: 5 })
+    expect(tool.parameters.parse({ action: "read", topic: "rsa-attacks", lines: 0 }).lines).toBe(160)
+  })
+
   test("read accepts an unused zero limit without a repair round trip", async () => {
     const tool = await CryptoReferenceTool.init()
     expect(tool.parameters.parse({ action: "read", topic: "modern-ciphers-2", limit: 0 }).limit).toBe(0)

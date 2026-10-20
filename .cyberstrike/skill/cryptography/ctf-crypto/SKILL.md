@@ -20,6 +20,8 @@ Use the challenge description, original source and supplied artifacts to identif
 4. Load only one or two matching skills from the routing table. Use crypto_reference search/read to retrieve the relevant chapter sections.
 5. Check crypto_environment only if the runtime is unknown or a dependency is missing. Local setup uses the hash-locked venv; Sage uses crypto_sage and the public API.
 
+For RSA with an approved public modulus and network lookup allowed, check FactorDB once through webfetch before local factoring. Load crypto-rsa for the exact lookup, validation and fallback rules. An offline restriction takes precedence. Cache unchanged negative experiments so an edit to XOR/decoding does not repeat the RSA stage.
+
 For custom few-round SPN/Feistel constructions, inspect algebraic degree, affine input sets and integral invariants before a generic SAT encoding. Search `integral`, `square` or `Feistel` and read matching sections. A promising measured invariant deserves a small discriminating experiment before broad alternative searches.
 
 ## Routing

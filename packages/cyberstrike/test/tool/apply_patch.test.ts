@@ -58,6 +58,35 @@ const makeCtx = () => {
 }
 
 describe("tool.apply_patch freeform", () => {
+  test("uses absolute paths without creating a stray drive-letter file", async () => {
+    await using fixture = await tmpdir({ config: { lsp: false } })
+    const { ctx } = makeCtx()
+    await Instance.provide({
+      directory: fixture.path,
+      fn: async () => {
+        const filename = path.join(fixture.path, "solver.txt")
+        const moved = path.join(fixture.path, "renamed.txt")
+        const created = await execute(
+          { patchText: `*** Begin Patch\n*** Add File: ${filename}\n+original\n*** End Patch` },
+          ctx,
+        )
+        expect(created.metadata.files[0].filePath).toBe(filename)
+        expect(await fs.readFile(filename, "utf-8")).toBe("original\n")
+        expect(await fs.readdir(fixture.path)).not.toContain(path.parse(filename).root[0])
+        await execute(
+          {
+            patchText: `*** Begin Patch\n*** Update File: ${filename}\n*** Move to: ${moved}\n@@\n-original\n+updated\n*** End Patch`,
+          },
+          ctx,
+        )
+        expect(await fs.readFile(moved, "utf-8")).toBe("updated\n")
+        expect(await Bun.file(filename).exists()).toBe(false)
+        await execute({ patchText: `*** Begin Patch\n*** Delete File: ${moved}\n*** End Patch` }, ctx)
+        expect(await Bun.file(moved).exists()).toBe(false)
+      },
+    })
+  })
+
   test("requires patchText", async () => {
     const { ctx } = makeCtx()
     await expect(execute({ patchText: "" }, ctx)).rejects.toThrow("patchText is required")
