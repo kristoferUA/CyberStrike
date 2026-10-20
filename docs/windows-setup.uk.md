@@ -108,7 +108,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 3. Кладе `hackbrowser-worker.js` поруч із виконуваним файлом.
 4. Встановлює Chromium через Playwright для браузерного інструмента.
 
-Дочекайтеся завершення всіх кроків і повідомлення `Built CyberStrike CTF ...`. Поточна очікувана версія — **`1.1.16-ctf.6`**. Chromium завантажується окремо; це може зайняти час залежно від мережі. Браузери та їх версії пов'язані з версією Playwright. [Документація Playwright](https://playwright.dev/docs/browsers)
+Дочекайтеся завершення всіх кроків і повідомлення `Built CyberStrike CTF ...`. Поточна очікувана версія — **`1.1.16-ctf.7`**. Chromium завантажується окремо; це може зайняти час залежно від мережі. Браузери та їх версії пов'язані з версією Playwright. [Документація Playwright](https://playwright.dev/docs/browsers)
 
 Результат у репозиторії:
 
@@ -126,7 +126,7 @@ packages\cyberstrike\dist-windows\cyberstrike-windows-x64\bin\hackbrowser-worker
 | `-SkipInstall`                      | Залежності вже встановлені за поточним `bun.lock`.            |
 | `-SkipBrowserInstall`               | Chromium уже встановлено або браузер підключається через CDP. |
 | `-ModelsPath 'D:\Data\models.json'` | Є локальний JSON-знімок каталогу models.dev для збірки.       |
-| `-Version '1.1.16-ctf.6'`           | Потрібно явно задати версію локальної збірки.                 |
+| `-Version '1.1.16-ctf.7'`           | Потрібно явно задати версію локальної збірки.                 |
 
 Для першого встановлення виконуйте основну команду без параметрів пропуску. Перед повторною збіркою закрийте процеси, які використовують її `cyberstrike.exe`.
 
@@ -294,7 +294,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 .\bin\cyberstrike.cmd --version
 ```
 
-`git status --short` показує локальні зміни. Якщо Git зупинив перемикання гілки або оновлення через них, спочатку збережіть свої зміни. Поточна збірка має суфікс `-ctf.6`; вона містить виправлення CTF.2.
+`git status --short` показує локальні зміни. Якщо Git зупинив перемикання гілки або оновлення через них, спочатку збережіть свої зміни. Поточна збірка має суфікс `-ctf.7`; вона містить виправлення CTF.2.
 
 Вхід через ChatGPT зберігається у даних користувача. Повторюйте його, якщо програма повідомляє про недійсне підключення. Оновлення цього форка виконується через Git і повторну збірку; інсталятор upstream встановлює оригінальну версію.
 
@@ -405,6 +405,6 @@ Nmap, Docker та інші зовнішні інструменти встано�
 
 Форк зберігає [ліцензію AGPL-3.0](../LICENSE) та походить від [CyberStrikeus/CyberStrike](https://github.com/CyberStrikeus/CyberStrike). Зміни форка й короткий огляд — у [документації CTF](ctf-fork.uk.md).
 
-## Cryptography (CTF.6)
+## Cryptography (CTF.7)
 
 Для криптографічних CTF-задач додатково встановіть uv, виконайте `cyberstrike crypto setup` і запустіть `cyberstrike --agent cryptography`. Sage використовується через публічний SageCell API. [Повна інструкція з оточенням, методикою та CLI](cryptography.uk.md).

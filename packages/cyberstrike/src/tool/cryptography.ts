@@ -157,14 +157,13 @@ export const CryptoReferenceTool = Tool.define("crypto_reference", {
       .int()
       .min(0)
       .default(1)
-      .transform((value) => value || 1),
+      .describe("First line to read; 0 uses line 1, and the field is ignored for search/list"),
     lines: z
       .number()
       .int()
       .min(0)
       .max(400)
       .default(160)
-      .transform((value) => value || 160)
       .describe("Read length; 0 uses the default 160, and the field is ignored for search/list"),
     limit: z
       .number()
@@ -209,14 +208,14 @@ export const CryptoReferenceTool = Tool.define("crypto_reference", {
         metadata: { topics, source: "ljagiello/ctf-skills", commit: "1fdf188cb7ac84a0a2697851aecab156f283e56b" },
       }
     }
+    const start = args.start_line || 1
+    const count = args.lines || 160
     const sections: string[] = []
     for (const topic of topics) {
       const lines = (await Bun.file(await CryptoRuntime.reference(topic + ".md")).text()).split(/\r?\n/)
       sections.push(
-        `# ${topic}: lines ${args.start_line}-${Math.min(lines.length, args.start_line + args.lines - 1)} of ${lines.length}`,
-        ...lines
-          .slice(args.start_line - 1, args.start_line - 1 + args.lines)
-          .map((line, i) => `${i + args.start_line}: ${line}`),
+        `# ${topic}: lines ${start}-${Math.min(lines.length, start + count - 1)} of ${lines.length}`,
+        ...lines.slice(start - 1, start - 1 + count).map((line, i) => `${i + start}: ${line}`),
       )
     }
     return {

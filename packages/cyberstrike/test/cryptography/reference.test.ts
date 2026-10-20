@@ -3,9 +3,20 @@ import path from "node:path"
 import { searchReferences } from "../../src/cryptography/reference"
 import { CRYPTO_REFERENCES } from "../../src/cryptography/catalog"
 import { CryptoReferenceTool } from "../../src/tool/cryptography"
+import type { Tool } from "../../src/tool/tool"
+
+const context: Tool.Context = {
+  sessionID: "ses_reference",
+  messageID: "msg_reference",
+  agent: "cryptography",
+  abort: new AbortController().signal,
+  messages: [],
+  metadata() {},
+  async ask() {},
+}
 
 describe("crypto reference search", () => {
-  test("normalizes unused zero line fields without rejecting a search", async () => {
+  test("accepts unused zero line fields and normalizes them when reading", async () => {
     const tool = await CryptoReferenceTool.init()
     expect(
       tool.parameters.parse({
@@ -15,8 +26,13 @@ describe("crypto reference search", () => {
         lines: 0,
         limit: 5,
       }),
-    ).toMatchObject({ action: "search", start_line: 1, lines: 160, limit: 5 })
-    expect(tool.parameters.parse({ action: "read", topic: "rsa-attacks", lines: 0 }).lines).toBe(160)
+    ).toMatchObject({ action: "search", start_line: 0, lines: 0, limit: 5 })
+    const result = await tool.execute(
+      tool.parameters.parse({ action: "read", topic: "rsa-attacks", start_line: 0, lines: 0 }),
+      context,
+    )
+    expect(result.output).toStartWith("# rsa-attacks: lines 1-160 of ")
+    expect(result.output).toContain("\n160: ")
   })
 
   test("read accepts an unused zero limit without a repair round trip", async () => {
