@@ -22,6 +22,7 @@ import { HackbrowserStatus } from "../../session/hackbrowser-status"
 import { Installation } from "../../installation"
 import { CLAUDE_CTF } from "./claude"
 import { claudePath } from "../../provider/claude-code"
+import { CryptoMethodology } from "../../cryptography/methodology"
 
 export const ClaudeToolsCommand = cmd({
   command: "claude-tools",
@@ -54,7 +55,10 @@ export const ClaudeToolsCommand = cmd({
         { name: "cyberstrike-ctf", version: Installation.VERSION },
         {
           capabilities: { tools: {} },
-          instructions: args.agent === "cryptography" ? agent.prompt : CLAUDE_CTF,
+          instructions:
+            args.agent === "cryptography"
+              ? agent.prompt + "\n\n" + (await CryptoMethodology.context(Session.root(session.id)))
+              : CLAUDE_CTF,
         },
       )
       // Native Claude supplies file, shell and task tools with its own permission

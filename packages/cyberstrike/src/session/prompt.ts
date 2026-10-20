@@ -633,7 +633,7 @@ export namespace SessionPrompt {
       if (
         lastFinished &&
         lastFinished.summary !== true &&
-        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
+        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model, agent: lastUser.agent }))
       ) {
         await SessionCompaction.create({
           sessionID,
@@ -779,10 +779,9 @@ export namespace SessionPrompt {
       // (non-tester) gets the full routing view.
       const placeholder = Agent.isPlaceholder(agent)
       const cryptography = agent.name === "cryptography"
-      const methodologyCtx = placeholder
-        ? undefined
-        : cryptography
-          ? await CryptoMethodology.context(Session.root(sessionID))
+      const methodologyCtx =
+        placeholder || cryptography
+          ? undefined
           : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
       if (methodologyCtx) system.push(methodologyCtx)
 
@@ -860,7 +859,7 @@ export namespace SessionPrompt {
         const loaded = SkillContext.active().filter(
           (name) => !cryptography || allSkills.some((skill) => skill.name === name),
         )
-        if (loaded.length > 0) {
+        if (!cryptography && loaded.length > 0) {
           lines.push("", `Currently loaded: ${loaded.join(", ")} (${SkillContext.tokenCount()} tokens)`)
         }
         system.push(lines.join("\n"))
@@ -873,7 +872,10 @@ export namespace SessionPrompt {
           : MessageV2.filterExcluded(sessionMessages, lastUser.id),
         model,
       )
-      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join(""))
+      // Put changing application state after replayable history so it does not
+      // invalidate the stable system/history prefix on each milestone update.
+      const cryptoContext = cryptography ? await CryptoMethodology.context(Session.root(sessionID)) : ""
+      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join("") + cryptoContext)
       const preflightLimit = model.limit.input
         ? model.limit.input
         : model.limit.context - ProviderTransform.maxOutputTokens(model)
@@ -900,6 +902,18 @@ export namespace SessionPrompt {
         system,
         messages: [
           ...modelMessages,
+          ...(cryptography
+            ? [
+                {
+                  role: "system" as const,
+                  content:
+                    cryptoContext +
+                    (step % 8 === 0
+                      ? `\nExecution checkpoint: ${step} model steps in this run. Prioritize the strongest measured invariant and one discriminating experiment; return an already verified result without further bookkeeping.`
+                      : ""),
+                },
+              ]
+            : []),
           ...(wrapUp
             ? [
                 {

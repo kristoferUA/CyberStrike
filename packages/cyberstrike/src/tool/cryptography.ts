@@ -3,10 +3,13 @@ import path from "node:path"
 import { Tool } from "./tool"
 import { Instance } from "../project/instance"
 import { Session } from "../session"
+import { Config } from "../config/config"
 import { CryptoRuntime } from "../cryptography/runtime"
 import { CryptoMethodology } from "../cryptography/methodology"
 import { CRYPTO_PHASES, CRYPTO_REFERENCES } from "../cryptography/catalog"
 import { sagecell, SAGECELL_URL } from "../cryptography/sagecell"
+import { searchReferences } from "../cryptography/reference"
+import { CryptoSettings } from "../cryptography/schema"
 
 async function local(filename: string, ctx: Tool.Context) {
   const file = path.resolve(Instance.directory, filename)
@@ -40,21 +43,51 @@ export const CryptoEnvironmentTool = Tool.define("crypto_environment", {
 
 export const CryptoRunTool = Tool.define("crypto_run", {
   description:
-    "Run a reviewed local CTF solver with the managed crypto Python, or a bundled probe/math helper. Optional system programs: openssl, hashcat, john. Pass argv entries, never a shell command string. Python requires script; probe args start with a file; math args start with gcd/inverse/root/crt/rsa/xor. Timeout and cancellation are bounded. This virtual environment is not a sandbox. Network operations must stay within challenge scope and query limits.",
+    'Run a reviewed local CTF solver with managed Python, or probe/math helpers. Python example: {"program":"python","script":"solve.py","args":[]}. script is a .py FILE PATH, never inline code; args are only its command-line arguments. Probe example: {"program":"probe","args":["cipher.bin"]}. Optional PATH programs: openssl/hashcat/john. Use a short exploratory timeout before committing to expensive attacks; batch related measurements in one script. This environment is not a sandbox. Stay within challenge scope/query limits.',
   parameters: z.object({
     program: z.enum(["python", "probe", "math", "openssl", "hashcat", "john"]).default("python"),
-    script: z.string().optional(),
-    args: z.array(z.string()).max(100).default([]),
+    script: z
+      .string()
+      .optional()
+      .describe("Path to an existing reviewed .py file, e.g. solve.py; not Python source code"),
+    args: z
+      .array(z.string())
+      .max(100)
+      .default([])
+      .describe("Arguments passed to the script/helper; omit for an empty array"),
     stdin: z.string().max(1048576).optional(),
-    timeout_seconds: z.number().int().min(1).max(300).default(120),
+    purpose: z
+      .enum(["experiment", "solve", "verify"])
+      .default("experiment")
+      .describe("experiment explores a hypothesis; solve/verify run an established solver/checker"),
+    timeout_seconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(300)
+      .optional()
+      .describe("Defaults to 30s for experiments or 120s for established solving/verification, configurable"),
+    justification: z
+      .string()
+      .min(12)
+      .max(500)
+      .optional()
+      .describe("Measured progress or work estimate needed when exceeding the configured purpose budget"),
   }),
   async execute(args, ctx) {
+    const settings = CryptoSettings.parse((await Config.get()).cryptography ?? {})
+    const budget = args.purpose === "experiment" ? settings.experiment_timeout_seconds : settings.solver_timeout_seconds
+    const timeout = args.timeout_seconds ?? budget
+    if (timeout > budget && !args.justification)
+      throw new Error(
+        `The ${args.purpose} budget is ${budget}s. Use that initial limit, or provide justification with measured progress/work estimate before requesting ${timeout}s. A prior timeout alone is not progress.`,
+      )
     await ctx.ask({ permission: "crypto_run", patterns: [args.program], always: [args.program], metadata: {} })
     const argv = [...args.args]
     if (args.program === "python") {
       if (!args.script || !/\.py$/i.test(args.script))
         throw new Error(
-          "Python solvers must name a reviewed .py script; inline interpreter options are not accepted as scripts.",
+          'Python requires a reviewed .py FILE PATH in script. Save code with a file tool first, then call {"program":"python","script":"solve.py","args":[]}. Do not put source code in script or the script path in args.',
         )
       argv.unshift(await local(args.script, ctx))
     }
@@ -62,18 +95,27 @@ export const CryptoRunTool = Tool.define("crypto_run", {
       if (!argv[0] || argv[0].startsWith("-")) throw new Error("The first probe argument must be a local file.")
       argv[0] = await local(argv[0], ctx)
     }
+    const start = performance.now()
     const result = await CryptoRuntime.execute(args.program, argv, {
       cwd: Instance.directory,
       signal: ctx.abort,
-      timeout: args.timeout_seconds * 1000,
+      timeout: timeout * 1000,
       stdin: args.stdin,
     })
     if (result.exitCode !== 0)
-      throw new Error(`${args.program} exited ${result.exitCode}\n${result.stdout}\n${result.stderr}`)
+      throw new Error(
+        `${args.program} exited ${result.exitCode} after ${Math.round((performance.now() - start) / 1000)}s (budget ${timeout}s). Inspect output before another attempt; a timeout is not an unsatisfiability proof.\n${result.stdout}\n${result.stderr}`,
+      )
     return {
       title: `Crypto ${args.program}`,
       output: result.stdout + (result.stderr ? "\n[stderr]\n" + result.stderr : ""),
-      metadata: { program: args.program, exitCode: result.exitCode },
+      metadata: {
+        program: args.program,
+        purpose: args.purpose,
+        timeout,
+        elapsedMs: Math.round(performance.now() - start),
+        exitCode: result.exitCode,
+      },
     }
   },
 })
@@ -105,13 +147,20 @@ export const CryptoSageTool = Tool.define("crypto_sage", {
 
 export const CryptoReferenceTool = Tool.define("crypto_reference", {
   description:
-    "List, search or read the version-pinned MIT-licensed ljagiello/ctf-skills crypto reference library. Read only matching topics/sections. Snippets are reference material, not verified solvers; check mathematical preconditions and adapt Sage snippets to the stateless SageCell service. The upstream installer is not used.",
+    "List, keyword-search or read the pinned MIT-licensed ljagiello/ctf-skills crypto reference library. Search ranks individual words and known synonyms (integral/square, lattice/LLL/BKZ), returning nearby lines and headings. A multiword query does not require an exact phrase. Read only matching sections. Snippets require mathematical validation; adapt Sage to the stateless API. Do not run the upstream installer.",
   parameters: z.object({
     action: z.enum(["list", "read", "search"]).default("list"),
     topic: z.enum(CRYPTO_REFERENCES).optional(),
     query: z.string().min(2).max(200).optional(),
     start_line: z.number().int().min(1).default(1),
     lines: z.number().int().min(1).max(400).default(160),
+    limit: z
+      .number()
+      .int()
+      .min(0)
+      .max(20)
+      .default(8)
+      .describe("Maximum ranked search excerpts; 0 uses the default 8, and the field is ignored for read/list"),
   }),
   async execute(args) {
     if (args.action === "list")
@@ -127,22 +176,36 @@ export const CryptoReferenceTool = Tool.define("crypto_reference", {
     const topics = args.topic ? [args.topic] : [...CRYPTO_REFERENCES]
     if (args.action === "read" && !args.topic) throw new Error("Choose a reference topic to read.")
     if (args.action === "search" && !args.query) throw new Error("A search query is required.")
+    if (args.action === "search") {
+      const documents = await Promise.all(
+        topics.map(async (topic) => ({
+          topic,
+          text: await Bun.file(await CryptoRuntime.reference(topic + ".md")).text(),
+        })),
+      )
+      const result = searchReferences(documents, args.query!, args.limit || 8)
+      return {
+        title: "Ranked crypto references",
+        output: result.hits.length
+          ? result.hits
+              .map(
+                (hit) =>
+                  `# ${hit.topic}:${hit.line} — ${hit.heading}\nMatched: ${hit.matched.join(", ")}\n${hit.excerpt}`,
+              )
+              .join("\n\n")
+          : `No matches for keywords: ${result.terms.join(", ") || "(none)"}. Try one construction or technique, such as integral, nonce, Feistel or lattice, or list the available topics.`,
+        metadata: { topics, source: "ljagiello/ctf-skills", commit: "1fdf188cb7ac84a0a2697851aecab156f283e56b" },
+      }
+    }
     const sections: string[] = []
     for (const topic of topics) {
       const lines = (await Bun.file(await CryptoRuntime.reference(topic + ".md")).text()).split(/\r?\n/)
-      if (args.action === "read") {
-        sections.push(
-          `# ${topic}: lines ${args.start_line}-${Math.min(lines.length, args.start_line + args.lines - 1)} of ${lines.length}`,
-          ...lines
-            .slice(args.start_line - 1, args.start_line - 1 + args.lines)
-            .map((line, i) => `${i + args.start_line}: ${line}`),
-        )
-      } else {
-        lines.forEach((line, i) => {
-          if (sections.length < 100 && line.toLowerCase().includes(args.query!.toLowerCase()))
-            sections.push(`${topic}:${i + 1}: ${line.slice(0, 500)}`)
-        })
-      }
+      sections.push(
+        `# ${topic}: lines ${args.start_line}-${Math.min(lines.length, args.start_line + args.lines - 1)} of ${lines.length}`,
+        ...lines
+          .slice(args.start_line - 1, args.start_line - 1 + args.lines)
+          .map((line, i) => `${i + args.start_line}: ${line}`),
+      )
     }
     return {
       title: `Crypto reference ${args.action}`,
@@ -152,11 +215,32 @@ export const CryptoReferenceTool = Tool.define("crypto_reference", {
   },
 })
 
+const PhaseUpdate = z.object({
+  phase: z.enum(
+    CRYPTO_PHASES.map((phase) => phase.id) as [
+      (typeof CRYPTO_PHASES)[number]["id"],
+      ...(typeof CRYPTO_PHASES)[number]["id"][],
+    ],
+  ),
+  status: z.enum(["in_progress", "blocked", "completed"]),
+  evidence: z.string().min(12).max(4000),
+  artifacts: z.array(z.string()).max(10).default([]),
+})
+
 export const CryptoMethodologyTool = Tool.define("crypto_methodology", {
   description:
-    "Track the CTF cryptography workflow: intake, classification, model, attack, recovery, verification, writeup. Record evidence and SHA-256 hashes of local artifacts. Preceding phases must be completed before advancing; verification completion needs an evidence artifact. This records claims and provenance, not an automatic certificate of mathematical correctness. Earlier changes invalidate later completions. Do not use web reconnaissance/VRT phases for local crypto tasks.",
+    'Record crypto milestones when useful, preferably in ONE updates array. Default solve workflow requires only recovery and verification; full seven-phase report is optional on user request. Example: {"action":"record","updates":[{"phase":"recovery","status":"completed","evidence":"Solver recovered a candidate","artifacts":["solve.py"]},{"phase":"verification","status":"completed","evidence":"Checker accepted the recovered bytes","artifacts":["verification.txt"]}]}. The tool hashes artifacts itself: do not run probe repeatedly just for hashes. Verification requires local evidence. Updates are atomic; later claims are invalidated when earlier claims change. Records are claims, not mathematical proof.',
   parameters: z.object({
     action: z.enum(["status", "record"]).default("status"),
+    workflow: z
+      .enum(["solve", "report"])
+      .optional()
+      .describe("Select report only for a requested full writeup; otherwise use solve"),
+    updates: z.array(PhaseUpdate).min(1).max(7).optional().describe("Ordered milestone updates committed together"),
+    details: z
+      .boolean()
+      .default(false)
+      .describe("Return full evidence only when explicitly needed; normal replies are compact"),
     phase: z
       .enum(
         CRYPTO_PHASES.map((phase) => phase.id) as [
@@ -166,27 +250,50 @@ export const CryptoMethodologyTool = Tool.define("crypto_methodology", {
       )
       .optional(),
     status: z.enum(["in_progress", "blocked", "completed"]).optional(),
-    evidence: z.string().min(12).max(12000).optional(),
+    evidence: z.string().min(12).max(4000).optional(),
     artifacts: z.array(z.string()).max(10).default([]),
   }),
   async execute(args, ctx) {
     const sessionID = Session.root(ctx.sessionID)
-    if (args.action === "record" && (!args.phase || !args.status || !args.evidence))
-      throw new Error("Recording needs phase, status and evidence.")
+    if (args.action === "record" && !args.updates && (!args.phase || !args.status || !args.evidence))
+      throw new Error("Provide ordered updates, or a single phase/status/evidence record.")
+    if (args.updates && (args.phase || args.status || args.evidence))
+      throw new Error("Use updates or the legacy single-phase fields, not both.")
     const state =
       args.action === "record"
         ? await CryptoMethodology.record({
             sessionID,
-            phase: args.phase!,
-            status: args.status!,
-            evidence: args.evidence!,
-            artifacts: await Promise.all(args.artifacts.map((file) => local(file, ctx))),
+            workflow: args.workflow,
+            updates: await Promise.all(
+              (
+                args.updates ?? [
+                  { phase: args.phase!, status: args.status!, evidence: args.evidence!, artifacts: args.artifacts },
+                ]
+              ).map(async (update) => ({
+                ...update,
+                artifacts: await Promise.all(update.artifacts.map((file) => local(file, ctx))),
+              })),
+            ),
             signal: ctx.abort,
           })
-        : await CryptoMethodology.read(sessionID)
+        : await CryptoMethodology.read(sessionID, args.workflow)
     return {
-      title: `Cryptography: ${state.completed}/${state.total} phases`,
-      output: JSON.stringify(state, null, 2),
+      title: `Cryptography ${state.workflow}: ${state.completed}/${state.total} milestones${state.ready ? " — verified candidate" : ""}`,
+      output: JSON.stringify(
+        args.details
+          ? state
+          : {
+              workflow: state.workflow,
+              ready: state.ready,
+              completed: state.completed,
+              total: state.total,
+              phases: state.phases
+                .filter((phase) => phase.required || phase.status !== "not_started")
+                .map((phase) => ({ id: phase.id, status: phase.status })),
+            },
+        null,
+        2,
+      ),
       metadata: { cryptography: state },
     }
   },

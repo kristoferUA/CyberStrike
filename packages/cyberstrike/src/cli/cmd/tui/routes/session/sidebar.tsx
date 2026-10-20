@@ -75,10 +75,17 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
       const parsed = CryptoProgress.safeParse(part.state.metadata.cryptography)
       if (parsed.success) return parsed.data
     }
+    const workflow = sync.data.config.cryptography?.workflow ?? "solve"
     return {
-      phases: CRYPTO_PHASES.map((phase) => ({ ...phase, status: "not_started" as const })),
+      workflow,
+      ready: false,
+      phases: CRYPTO_PHASES.map((phase) => ({
+        ...phase,
+        status: "not_started" as const,
+        required: workflow === "report" || ["recovery", "verification"].includes(phase.id),
+      })),
       completed: 0,
-      total: CRYPTO_PHASES.length,
+      total: workflow === "report" ? CRYPTO_PHASES.length : 2,
       percent: 0,
     }
   })
@@ -301,9 +308,17 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                   <b>Cryptography</b>
                 </text>
                 <text fg={theme.textMuted}>
-                  {cryptoProgress()!.completed}/{cryptoProgress()!.total} phases ({cryptoProgress()!.percent}%)
+                  {cryptoProgress()!.workflow ?? "report"}: {cryptoProgress()!.completed}/{cryptoProgress()!.total}{" "}
+                  milestones ({cryptoProgress()!.percent}%)
                 </text>
-                <For each={cryptoProgress()!.phases}>
+                <Show when={cryptoProgress()!.ready}>
+                  <text fg={theme.success}>Verified candidate recovered</text>
+                </Show>
+                <For
+                  each={cryptoProgress()!.phases.filter(
+                    (phase) => phase.required !== false || phase.status !== "not_started",
+                  )}
+                >
                   {(phase) => (
                     <text
                       fg={

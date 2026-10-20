@@ -34,7 +34,7 @@ Select an exact model ID from the returned list; example IDs may change. If Open
 
 ## Run from a challenge directory
 
-The `cryptography` CTF mode includes eight adapted skills, 19 pinned `ljagiello/ctf-skills` reference chapters, a seven-phase evidence workflow, a managed Python toolchain and remote SageCell computations. Run `cyberstrike crypto setup`, then `cyberstrike --agent cryptography`; native Claude supports `cyberstrike claude --agent cryptography --model sonnet`. Local Sage, WSL and Docker are unnecessary. Code and embedded parameters sent to SageCell are processed by a public third-party service. [Setup and usage guide (Ukrainian)](cryptography.uk.md).
+The `cryptography` CTF mode includes eight adapted skills, 19 pinned `ljagiello/ctf-skills` reference chapters, a managed Python toolchain and remote SageCell computations. CTF.5 defaults to a concise solve/verification workflow; a full seven-phase report is optional. Reference search ranks keywords/synonyms, exploratory runs have short configurable budgets, and the selected TUI effort survives context compaction. Run `cyberstrike crypto setup`, then `cyberstrike --agent cryptography`; native Claude supports `cyberstrike claude --agent cryptography --model sonnet`. Local Sage, WSL and Docker are unnecessary. Code and embedded parameters sent to SageCell are processed by a public third-party service. [Setup and usage guide (Ukrainian)](cryptography.uk.md).
 
 Use the full path to `CyberStrike\bin\cyberstrike.cmd` after switching to the challenge folder. Replace the example paths and model with your actual values.
 

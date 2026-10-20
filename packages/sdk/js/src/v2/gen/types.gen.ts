@@ -2225,6 +2225,24 @@ export type Config = {
      */
     url?: string
   }
+  cryptography?: {
+    /**
+     * Default crypto workflow: solve returns a verified result; report also requires a full writeup
+     */
+    workflow?: "solve" | "report"
+    /**
+     * Initial crypto hypothesis execution budget in seconds (default: 30)
+     */
+    experiment_timeout_seconds?: number
+    /**
+     * Established crypto solver/verification budget in seconds (default: 120)
+     */
+    solver_timeout_seconds?: number
+    /**
+     * Crypto context compaction target, bounded by model limits (default: 64000)
+     */
+    context_target_tokens?: number
+  }
   compaction?: {
     /**
      * Enable automatic compaction when context is full (default: true)

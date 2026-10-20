@@ -44,6 +44,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 
 Режим `cryptography` містить 8 скілів, 19 довідкових розділів із `ljagiello/ctf-skills`, власну методику, ізольований Python-інструментарій і Sage через API SageCell. [Сетап та використання](cryptography.uk.md).
 
+У CTF.5 стандартний `solve` повертає перевірений результат і solver; повний `report` доступний за запитом. Додано пошук за словами й синонімами, короткі бюджети експериментів і пакетний запис доказів. Вибраний у TUI effort зберігається, зокрема після стискання контексту.
+
 ```powershell
 cyberstrike crypto setup
 cyberstrike --agent cryptography

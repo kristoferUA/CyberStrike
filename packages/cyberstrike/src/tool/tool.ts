@@ -52,11 +52,11 @@ export namespace Tool {
     return {
       id,
       init: async (initCtx) => {
-        const toolInfo = init instanceof Function ? await init(initCtx) : init
+        const toolInfo = { ...(init instanceof Function ? await init(initCtx) : init) }
         const execute = toolInfo.execute
         toolInfo.execute = async (args, ctx) => {
           try {
-            toolInfo.parameters.parse(args)
+            args = toolInfo.parameters.parse(args)
           } catch (error) {
             if (error instanceof z.ZodError && toolInfo.formatValidationError) {
               throw new Error(toolInfo.formatValidationError(error), { cause: error })

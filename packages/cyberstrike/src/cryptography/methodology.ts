@@ -3,10 +3,11 @@ import fs from "node:fs/promises"
 import { createHash } from "node:crypto"
 import { createReadStream } from "node:fs"
 import { Global } from "../global"
+import { Config } from "../config/config"
 import { Lock } from "../util/lock"
 import { Identifier } from "../id/id"
 import { CRYPTO_PHASES, type CryptoPhase } from "./catalog"
-import { CryptoProgress } from "./schema"
+import { CryptoProgress, CryptoSettings } from "./schema"
 
 export namespace CryptoMethodology {
   function file(sessionID: string) {
@@ -15,70 +16,90 @@ export namespace CryptoMethodology {
   }
 
   function summarize(state: CryptoProgress): CryptoProgress {
-    const completed = state.phases.filter((phase) => phase.status === "completed").length
+    const phases = state.phases.map((phase) => ({
+      ...phase,
+      required: state.workflow === "report" || ["recovery", "verification"].includes(phase.id),
+    }))
+    const required = phases.filter((phase) => phase.required)
+    const completed = required.filter((phase) => phase.status === "completed").length
     return {
       ...state,
+      phases,
+      ready: phases.some((phase) => phase.id === "verification" && phase.status === "completed"),
       completed,
-      total: state.phases.length,
-      percent: Math.round((100 * completed) / state.phases.length),
-      current: state.phases.find((phase) => phase.status !== "completed")?.id,
+      total: required.length,
+      percent: Math.round((100 * completed) / required.length),
+      current: required.find((phase) => phase.status !== "completed")?.id,
     }
   }
 
-  export async function read(sessionID: string): Promise<CryptoProgress> {
+  export async function read(sessionID: string, workflow?: "solve" | "report"): Promise<CryptoProgress> {
     const source = Bun.file(file(sessionID))
-    if (await source.exists()) return summarize(CryptoProgress.parse(await source.json()))
+    const configured = CryptoSettings.parse((await Config.get()).cryptography ?? {}).workflow
+    if (await source.exists()) {
+      const state = CryptoProgress.parse(await source.json())
+      return summarize({ ...state, workflow: workflow ?? state.workflow ?? configured })
+    }
     return summarize({
       sessionID,
+      workflow: workflow ?? configured,
       phases: CRYPTO_PHASES.map((phase) => ({ ...phase, status: "not_started", evidence: "", artifacts: [] })),
       completed: 0,
-      total: CRYPTO_PHASES.length,
+      total: 0,
       percent: 0,
     })
   }
 
   export async function record(input: {
     sessionID: string
-    phase: CryptoPhase
-    status: "in_progress" | "blocked" | "completed"
-    evidence: string
-    artifacts: string[]
+    workflow?: "solve" | "report"
+    updates: {
+      phase: CryptoPhase
+      status: "in_progress" | "blocked" | "completed"
+      evidence: string
+      artifacts: string[]
+    }[]
     signal?: AbortSignal
   }) {
     const target = file(input.sessionID)
     using _ = await Lock.write(target)
-    const state = await read(input.sessionID)
-    const index = state.phases.findIndex((phase) => phase.id === input.phase)
-    if (input.status !== "blocked" && state.phases.slice(0, index).some((phase) => phase.status !== "completed")) {
-      throw new Error(
-        "Complete the preceding cryptography phases or record this phase as blocked with the missing prerequisites.",
-      )
-    }
-    if (input.phase === "verification" && input.status === "completed" && input.artifacts.length === 0) {
-      throw new Error(
-        "Verification needs a local evidence artifact, such as the solver/checker output. A candidate flag alone is insufficient.",
-      )
-    }
-    const artifacts = await Promise.all(
-      input.artifacts.map(async (filename) => {
-        const digest = createHash("sha256")
-        for await (const chunk of createReadStream(filename, { signal: input.signal })) digest.update(chunk)
-        return { path: filename, sha256: digest.digest("hex") }
-      }),
-    )
-    state.phases[index] = {
-      ...state.phases[index],
-      status: input.status,
-      evidence: input.evidence,
-      artifacts,
-      updated: Date.now(),
-    }
-    // Changing an earlier claim invalidates downstream completion evidence.
-    for (const phase of state.phases.slice(index + 1)) {
-      phase.status = "not_started"
-      phase.evidence = ""
-      phase.artifacts = []
-      phase.updated = undefined
+    const state = await read(input.sessionID, input.workflow)
+    const hashes = new Map<string, string>()
+    for (const update of input.updates) {
+      const index = state.phases.findIndex((phase) => phase.id === update.phase)
+      if (index < 0) throw new Error("Unknown cryptography phase.")
+      const preceding = state.phases.slice(0, index).filter((phase) => phase.required)
+      if (update.status !== "blocked" && preceding.some((phase) => phase.status !== "completed"))
+        throw new Error(
+          "Complete preceding required phases, or batch their evidence in updates. Solve mode requires recovery and verification; report mode requires all seven phases.",
+        )
+      if (update.phase === "verification" && update.status === "completed" && update.artifacts.length === 0)
+        throw new Error(
+          "Verification requires a local checker/solver evidence artifact. A candidate flag alone is insufficient.",
+        )
+      const artifacts = []
+      for (const filename of update.artifacts) {
+        if (!hashes.has(filename)) {
+          const digest = createHash("sha256")
+          for await (const chunk of createReadStream(filename, { signal: input.signal })) digest.update(chunk)
+          hashes.set(filename, digest.digest("hex"))
+        }
+        artifacts.push({ path: filename, sha256: hashes.get(filename)! })
+      }
+      state.phases[index] = {
+        ...state.phases[index],
+        status: update.status,
+        evidence: update.evidence,
+        artifacts,
+        updated: Date.now(),
+      }
+      // Revisions invalidate later claims; a batch can re-establish their evidence.
+      for (const phase of state.phases.slice(index + 1)) {
+        phase.status = "not_started"
+        phase.evidence = ""
+        phase.artifacts = []
+        phase.updated = undefined
+      }
     }
     const result = summarize(state)
     await fs.mkdir(path.dirname(target), { recursive: true })
@@ -91,14 +112,15 @@ export namespace CryptoMethodology {
   export async function context(sessionID: string) {
     const state = await read(sessionID)
     return [
-      "# Cryptography methodology",
-      `${state.completed}/${state.total} phases complete (${state.percent}%).`,
-      ...state.phases.map(
-        (phase) =>
-          `[${phase.status}] ${phase.id}: ${phase.name}${phase.evidence ? " — " + phase.evidence.slice(0, 800) : ""}`,
-      ),
-      "Next: " + (state.current ?? "complete"),
-      "Record progress and artifact hashes with crypto_methodology. Completion is an evidence-backed claim, not an automatic correctness certificate.",
+      "Cryptography application state (tool outputs contain the detailed evidence):",
+      `Workflow: ${state.workflow}. Required milestones: ${state.completed}/${state.total}. Verified candidate: ${state.ready ? "yes" : "no"}.`,
+      state.phases
+        .filter((phase) => phase.required || phase.status !== "not_started")
+        .map((phase) => `${phase.id}=${phase.status}`)
+        .join("; "),
+      state.workflow === "solve"
+        ? "Return the verified result and solver promptly. Full writeup and optional phase bookkeeping must not delay the answer. Batch any milestone updates."
+        : "A full report was selected; batch phase evidence rather than issuing one bookkeeping call per phase.",
     ].join("\n")
   }
 }

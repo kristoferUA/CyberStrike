@@ -54,8 +54,20 @@ export namespace Log {
     process.stderr.write(msg)
     return msg.length
   }
+  let end: (() => Promise<void>) | undefined
+
+  export async function close() {
+    const previous = end
+    end = undefined
+    write = (msg: any) => {
+      process.stderr.write(msg)
+      return msg.length
+    }
+    await previous?.()
+  }
 
   export async function init(options: Options) {
+    await close()
     if (options.level) level = options.level
     cleanup(Global.Path.log)
     if (options.print) return
@@ -66,6 +78,9 @@ export namespace Log {
     const logfile = Bun.file(logpath)
     await fs.truncate(logpath).catch(() => {})
     const writer = logfile.writer()
+    end = async () => {
+      await writer.end()
+    }
     write = async (msg: any) => {
       const num = writer.write(msg)
       writer.flush()
