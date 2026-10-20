@@ -42,13 +42,14 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 
 ### Режим cryptography
 
-Додано порожній режим `cryptography` для майбутніх CTF-задач із криптографії. Матеріали, скіли та інструменти до нього ще не підключені.
+Режим `cryptography` містить 8 скілів, 19 довідкових розділів із `ljagiello/ctf-skills`, власну методику, ізольований Python-інструментарій і Sage через API SageCell. [Сетап та використання](cryptography.uk.md).
 
 ```powershell
+cyberstrike crypto setup
 cyberstrike --agent cryptography
 ```
 
-У відкритому інтерфейсі режим також доступний у списку вибору агента. Він працює з поточною моделлю; за потреби її можна вказати через `-m`.
+У відкритому інтерфейсі режим також доступний у списку вибору агента. Він працює з поточною моделлю; за потреби її можна вказати через `-m`. Для Claude: `cyberstrike claude --agent cryptography --model sonnet`. Локальний Sage не потрібен; передані до SageCell код і параметри обробляє публічний сторонній сервіс.
 
 ### Основний режим
 

@@ -29,6 +29,12 @@ export const ClaudeToolsCommand = cmd({
   builder: (yargs) =>
     yargs
       .option("model", { type: "string", default: "sonnet", describe: "native Claude Code browser planner model" })
+      .option("agent", {
+        type: "string",
+        choices: ["cyberstrike", "cryptography"] as const,
+        default: "cyberstrike",
+        describe: "CyberStrike CTF profile",
+      })
       .option("claude-path", { type: "string", describe: "path to the official native Claude Code executable" }),
   handler: async (args) => {
     console.log = console.error.bind(console)
@@ -39,15 +45,16 @@ export const ClaudeToolsCommand = cmd({
     process.env.CYBERSTRIKE_EXTERNAL_ANALYSIS = "true"
     const directory = process.cwd()
     await bootstrap(directory, async () => {
-      const agent = await Agent.get("cyberstrike")
+      const agent = await Agent.get(args.agent)
       if (!agent) throw new Error("The CyberStrike agent is unavailable.")
-      const session = await Session.create({ title: "Claude Code CTF" })
-      const http = Server.listen({ hostname: "127.0.0.1", port: 0, webUI: false })
+      const session = await Session.create({ title: `Claude Code ${args.agent} CTF` })
+      const http =
+        args.agent === "cryptography" ? undefined : Server.listen({ hostname: "127.0.0.1", port: 0, webUI: false })
       const server = new McpServer(
         { name: "cyberstrike-ctf", version: Installation.VERSION },
         {
           capabilities: { tools: {} },
-          instructions: CLAUDE_CTF,
+          instructions: args.agent === "cryptography" ? agent.prompt : CLAUDE_CTF,
         },
       )
       // Native Claude supplies file, shell and task tools with its own permission
@@ -76,7 +83,10 @@ export const ClaudeToolsCommand = cmd({
       const tools = (await ToolRegistry.tools({ providerID: "claude-code", modelID: args.model }, agent)).filter(
         (tool) => !excluded.has(tool.id),
       )
-      const disabled = PermissionNext.disabled([...tools.map((tool) => tool.id), "hackbrowser"], agent.permission)
+      const disabled = PermissionNext.disabled(
+        [...tools.map((tool) => tool.id), "hackbrowser", "hackbrowser_status", "hackbrowser_stop"],
+        agent.permission,
+      )
       const browser = await HackbrowserTool.init({ agent })
       const schemas: McpTool[] = tools
         .filter((tool) => !disabled.has(tool.id))
@@ -118,6 +128,7 @@ export const ClaudeToolsCommand = cmd({
             fn: async (): Promise<CallToolResult> => {
               try {
                 const name = request.params.name
+                if (disabled.has(name)) throw new Error(`CyberStrike permission denied: ${name}`)
                 if (name === "hackbrowser_status")
                   return {
                     content: [
@@ -128,7 +139,6 @@ export const ClaudeToolsCommand = cmd({
                   return { content: [{ type: "text", text: JSON.stringify({ stopped: stopHackbrowser(session.id) }) }] }
                 const tool = tools.find((item) => item.id === name)
                 if (!tool && name !== "hackbrowser") throw new Error(`Unknown CyberStrike tool: ${name}`)
-                if (disabled.has(name)) throw new Error(`CyberStrike permission denied: ${name}`)
                 const input = request.params.arguments ?? {}
                 const messageID = Identifier.ascending("message")
                 await Session.updateMessage({
@@ -136,7 +146,7 @@ export const ClaudeToolsCommand = cmd({
                   sessionID: session.id,
                   role: "user",
                   time: { created: Date.now() },
-                  agent: "cyberstrike",
+                  agent: agent.name,
                   model: { providerID: "claude-code", modelID: args.model },
                 })
                 const ask: Parameters<typeof browser.execute>[1]["ask"] = async (input) => {
@@ -166,7 +176,10 @@ export const ClaudeToolsCommand = cmd({
                       throw new Error("CyberStrike action was not approved.")
                   }
                 }
-                if (name !== "hackbrowser")
+                // SkillTool checks permission against the requested skill name
+                // and filters discovery results. A blanket "*" check would
+                // incorrectly deny profiles that allow only specific skills.
+                if (name !== "hackbrowser" && name !== "skill")
                   await ask({
                     permission: name,
                     patterns: [typeof input.target === "string" ? input.target : "*"],
@@ -230,7 +243,7 @@ export const ClaudeToolsCommand = cmd({
       } finally {
         stopHackbrowser(session.id)
         await server.close()
-        await http.stop(true)
+        await http?.stop(true)
       }
     })
   },

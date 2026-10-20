@@ -112,7 +112,10 @@ export namespace LLM {
       mergeDeep(variant),
     )
     if (isCodex) {
-      options.instructions = Agent.isPlaceholder(input.agent) ? input.agent.prompt : SystemPrompt.instructions()
+      options.instructions =
+        Agent.isPlaceholder(input.agent) || input.agent.name === "cryptography"
+          ? input.agent.prompt
+          : SystemPrompt.instructions()
     }
 
     const params = await Plugin.trigger(

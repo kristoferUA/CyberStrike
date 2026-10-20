@@ -49,6 +49,7 @@ import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { Token } from "@/util/token"
 import { MethodologyContext } from "@/methodology/context"
+import { CryptoMethodology } from "../cryptography/methodology"
 import { AgentPerformance } from "@/methodology/performance"
 import { testerClass } from "@/tool/vuln-scope"
 import { stopHackbrowser } from "@/tool/hackbrowser-launcher"
@@ -777,14 +778,17 @@ export namespace SessionPrompt {
       // running agent's lane when it's a proxy-tester (Phase 2.3) — orchestrator
       // (non-tester) gets the full routing view.
       const placeholder = Agent.isPlaceholder(agent)
+      const cryptography = agent.name === "cryptography"
       const methodologyCtx = placeholder
         ? undefined
-        : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
+        : cryptography
+          ? await CryptoMethodology.context(Session.root(sessionID))
+          : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
       if (methodologyCtx) system.push(methodologyCtx)
 
       // Inject MCP tool availability info so the LLM knows to use tool_search
       const mcpLazyStats = LazyToolRegistry.stats()
-      if (!placeholder && mcpLazyStats.available > 0) {
+      if (!placeholder && !cryptography && mcpLazyStats.available > 0) {
         const allLazy = LazyToolRegistry.getAll()
         const byServer = new Map<string, string[]>()
         for (const t of allLazy) {
@@ -815,7 +819,7 @@ export namespace SessionPrompt {
 
       // Inject disabled MCP server awareness so the agent can remind the
       // user to enable them when relevant capabilities are needed.
-      const mcpStatus = placeholder ? {} : await MCP.status()
+      const mcpStatus = placeholder || cryptography ? {} : await MCP.status()
       const disabledServers = Object.entries(mcpStatus)
         .filter(([, s]) => s.status === "disabled")
         .map(([name]) => name)
@@ -830,7 +834,9 @@ export namespace SessionPrompt {
       }
 
       // Inject skill awareness so the agent knows to use the skill tool
-      const allSkills = placeholder ? [] : await Skill.all()
+      const allSkills = placeholder
+        ? []
+        : (await Skill.all()).filter((skill) => !cryptography || skill.category === "cryptography")
       if (allSkills.length > 0) {
         const byCategory = new Map<string, number>()
         for (const s of allSkills) {
@@ -851,7 +857,9 @@ export namespace SessionPrompt {
           lines.push("", "Recommended skills for this agent (load these first):")
           for (const name of agent.skills) lines.push(`- ${name}`)
         }
-        const loaded = SkillContext.active()
+        const loaded = SkillContext.active().filter(
+          (name) => !cryptography || allSkills.some((skill) => skill.name === name),
+        )
         if (loaded.length > 0) {
           lines.push("", `Currently loaded: ${loaded.join(", ")} (${SkillContext.tokenCount()} tokens)`)
         }
@@ -1150,6 +1158,10 @@ export namespace SessionPrompt {
         },
       })
     }
+
+    // The crypto profile uses its dedicated local/SageCell tools rather than
+    // initializing unrelated penetration-testing MCP servers.
+    if (input.agent.name === "cryptography") return tools
 
     // Initialize lazy tool registry for MCP tools
     await ToolRegistry.initLazyRegistry()

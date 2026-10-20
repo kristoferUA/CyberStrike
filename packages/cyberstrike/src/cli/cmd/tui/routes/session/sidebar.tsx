@@ -12,6 +12,8 @@ import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { formatEndpointHost } from "@tui/util/format"
+import { CRYPTO_PHASES } from "@/cryptography/catalog"
+import { CryptoProgress } from "@/cryptography/schema"
 
 const fmtTokens = (n: number) =>
   n >= 1_000_000 ? (n / 1_000_000).toFixed(2) + "M" : n >= 1_000 ? Math.round(n / 1_000) + "K" : String(n)
@@ -60,6 +62,26 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const functions = createMemo(() => sync.data.web_function[props.sessionID] ?? [])
   const retests = createMemo(() => sync.data.web_retest[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
+  const cryptoMode = createMemo(
+    () => messages().findLast((message) => message.role === "user")?.agent === "cryptography",
+  )
+  const cryptoProgress = createMemo(() => {
+    if (!cryptoMode()) return undefined
+    for (const message of messages().toReversed()) {
+      const part = (sync.data.part[message.id] ?? []).findLast(
+        (part) => part.type === "tool" && part.tool === "crypto_methodology" && part.state.status === "completed",
+      )
+      if (part?.type !== "tool" || part.state.status !== "completed") continue
+      const parsed = CryptoProgress.safeParse(part.state.metadata.cryptography)
+      if (parsed.success) return parsed.data
+    }
+    return {
+      phases: CRYPTO_PHASES.map((phase) => ({ ...phase, status: "not_started" as const })),
+      completed: 0,
+      total: CRYPTO_PHASES.length,
+      percent: 0,
+    }
+  })
   const queueStatus = createMemo(() => sync.data.session_queue_status?.[props.sessionID])
   const hackbrowserStatus = createMemo(() => sync.data.session_hackbrowser_status?.[props.sessionID])
   const methodology = createMemo(() => sync.data.methodology?.[props.sessionID])
@@ -69,7 +91,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   // the value present, and skips.
   createEffect(() => {
     const sid = props.sessionID
-    if (sid && !sync.data.methodology?.[sid]) void sync.refreshMethodology(sid)
+    if (!cryptoMode() && sid && !sync.data.methodology?.[sid]) void sync.refreshMethodology(sid)
   })
 
   // Cumulative usage across the session tree (main + subagents). Debounced on
@@ -273,7 +295,40 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
                 </Show>
               </box>
             </Show>
-            <Show when={methodology() && methodology()!.totalEntries > 0}>
+            <Show when={cryptoProgress()}>
+              <box>
+                <text fg={theme.text}>
+                  <b>Cryptography</b>
+                </text>
+                <text fg={theme.textMuted}>
+                  {cryptoProgress()!.completed}/{cryptoProgress()!.total} phases ({cryptoProgress()!.percent}%)
+                </text>
+                <For each={cryptoProgress()!.phases}>
+                  {(phase) => (
+                    <text
+                      fg={
+                        phase.status === "completed"
+                          ? theme.success
+                          : phase.status === "blocked"
+                            ? theme.warning
+                            : theme.textMuted
+                      }
+                      wrapMode="word"
+                    >
+                      {phase.status === "completed"
+                        ? "[x]"
+                        : phase.status === "in_progress"
+                          ? "[>]"
+                          : phase.status === "blocked"
+                            ? "[!]"
+                            : "[ ]"}{" "}
+                      {phase.name}
+                    </text>
+                  )}
+                </For>
+              </box>
+            </Show>
+            <Show when={!cryptoMode() && methodology() && methodology()!.totalEntries > 0}>
               <box>
                 <text fg={theme.text}>
                   <b>Methodology</b>

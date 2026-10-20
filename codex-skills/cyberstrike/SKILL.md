@@ -18,6 +18,14 @@ Use this skill for CyberStrike setup, operation and interpretation of CTF result
 - Plan access and usage limits depend on the account. Do not claim unlimited access or alter account usage settings. Do not reuse Codex credentials or another application's tokens.
 - For a blank TUI, capture `--print-logs --log-level DEBUG` startup stages and redact credentials. A readiness timeout indicates the worker did not finish startup. Rebuild from the fork after closing its executable; the upstream npm installer does not include fork changes.
 
+## Cryptography CTF profile
+
+- Read `docs/cryptography.uk.md`. Use `cyberstrike crypto setup` for the isolated, hash-locked Python 3.12 environment, then `cyberstrike crypto status`. Do not install local Sage, WSL or Docker for this profile.
+- Select `cyberstrike --agent cryptography` for the TUI, or `cyberstrike claude --agent cryptography --model sonnet` for native Claude Code. Use its eight skills, paginated `crypto_reference` chapters and seven-phase `crypto_methodology` workflow.
+- Use `crypto_run` for reviewed local solvers and bounded byte/exact-arithmetic helpers. Keep file access, oracle collection and final verification local. Optional OpenSSL/Hashcat/John are used only if separately installed on PATH.
+- Use `crypto_sage` or `cyberstrike crypto sage file.sage` for short self-contained mathematical steps through the public SageCell API. Code and embedded values leave the machine; send public CTF parameters, not credentials, recovered private keys or flags. Calls are stateless, currently limited to 30 seconds, and cannot access local files/network oracles. Print small results; respect limits and do not automatically retry or accept terms for the user.
+- Save solver/checker evidence and verify candidates against original equations, re-encryption or the challenge checker. Recorded phase completion is a claim, not automatic proof of correctness. The reference library retains its pinned source commit and MIT license.
+
 ## CTF scope
 
 - A supplied challenge target is authorized only within the challenge's published scope and rules. If the target or rules are missing or ambiguous, clarify them before sending network traffic.

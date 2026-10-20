@@ -3,6 +3,8 @@ import z from "zod"
 import { Provider } from "../provider/provider"
 import { generateObject, streamObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
+import PROMPT_CRYPTOGRAPHY from "./prompt/cryptography.txt"
+import { CRYPTO_SKILLS } from "../cryptography/catalog"
 import { Instance } from "../project/instance"
 import { Truncate } from "../tool/truncation"
 import { Auth } from "../auth"
@@ -202,15 +204,37 @@ export namespace Agent {
       },
       cryptography: {
         name: "cryptography",
-        description: "Cryptography CTF mode. Materials and tools will be added later.",
-        prompt: "Cryptography CTF mode. No materials or tools have been configured yet.",
-        mode: "primary",
+        description:
+          "CTF cryptography specialist: exact algebra, RSA, symmetric ciphers, ECC/DH, PRNG, lattices and SageCell computations.",
+        prompt: PROMPT_CRYPTOGRAPHY,
+        mode: "all",
         native: true,
-        skills: [],
-        permission: PermissionNext.fromConfig({
-          "*": "deny",
-          external_directory: { [Truncate.GLOB]: "deny" },
-        }),
+        skills: CRYPTO_SKILLS,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+            glob: "allow",
+            grep: "allow",
+            write: "allow",
+            edit: "allow",
+            apply_patch: "allow",
+            bash: "allow",
+            question: "allow",
+            todowrite: "allow",
+            webfetch: "allow",
+            skill: { "*": "deny", "ctf-crypto": "allow", "crypto-*": "allow" },
+            crypto_environment: "allow",
+            crypto_run: "allow",
+            crypto_sage: "allow",
+            crypto_reference: "allow",
+            crypto_methodology: "allow",
+            crypto_install: "ask",
+            external_directory: { "*": "ask", [Truncate.GLOB]: "allow" },
+          }),
+          user,
+        ),
         options: {},
       },
       general: {
