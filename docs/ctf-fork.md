@@ -34,6 +34,8 @@ Select an exact model ID from the returned list; example IDs may change. If Open
 
 ## Run from a challenge directory
 
+The reserved `cryptography` CTF mode is available with `cyberstrike --agent cryptography` or from the agent selector. It has no materials, skills or tools configured yet and uses the currently selected model. Shared methodology, skill and MCP tool context is not injected into this empty profile.
+
 Use the full path to `CyberStrike\bin\cyberstrike.cmd` after switching to the challenge folder. Replace the example paths and model with your actual values.
 
 PowerShell:

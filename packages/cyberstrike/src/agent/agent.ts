@@ -200,6 +200,19 @@ export namespace Agent {
         mode: "primary",
         native: true,
       },
+      cryptography: {
+        name: "cryptography",
+        description: "Cryptography CTF mode. Materials and tools will be added later.",
+        prompt: "Cryptography CTF mode. No materials or tools have been configured yet.",
+        mode: "primary",
+        native: true,
+        skills: [],
+        permission: PermissionNext.fromConfig({
+          "*": "deny",
+          external_directory: { [Truncate.GLOB]: "deny" },
+        }),
+        options: {},
+      },
       general: {
         name: "general",
         description: `General-purpose agent for researching complex questions and executing multi-step tasks. Use this agent to execute multiple units of work in parallel.`,
@@ -905,6 +918,11 @@ export namespace Agent {
 
     return result
   })
+
+  export function isPlaceholder(agent: Info) {
+    // Explicitly empty profiles do not inherit shared tools or skill context.
+    return agent.skills?.length === 0 && agent.permission.every((rule) => rule.action === "deny")
+  }
 
   export async function get(agent: string) {
     return state().then((x) => x[agent])

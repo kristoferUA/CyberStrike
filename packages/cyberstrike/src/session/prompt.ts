@@ -776,12 +776,15 @@ export namespace SessionPrompt {
       // Inject methodology context if the session has intel data. Scope it to the
       // running agent's lane when it's a proxy-tester (Phase 2.3) — orchestrator
       // (non-tester) gets the full routing view.
-      const methodologyCtx = MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
+      const placeholder = Agent.isPlaceholder(agent)
+      const methodologyCtx = placeholder
+        ? undefined
+        : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
       if (methodologyCtx) system.push(methodologyCtx)
 
       // Inject MCP tool availability info so the LLM knows to use tool_search
       const mcpLazyStats = LazyToolRegistry.stats()
-      if (mcpLazyStats.available > 0) {
+      if (!placeholder && mcpLazyStats.available > 0) {
         const allLazy = LazyToolRegistry.getAll()
         const byServer = new Map<string, string[]>()
         for (const t of allLazy) {
@@ -812,7 +815,7 @@ export namespace SessionPrompt {
 
       // Inject disabled MCP server awareness so the agent can remind the
       // user to enable them when relevant capabilities are needed.
-      const mcpStatus = await MCP.status()
+      const mcpStatus = placeholder ? {} : await MCP.status()
       const disabledServers = Object.entries(mcpStatus)
         .filter(([, s]) => s.status === "disabled")
         .map(([name]) => name)
@@ -827,7 +830,7 @@ export namespace SessionPrompt {
       }
 
       // Inject skill awareness so the agent knows to use the skill tool
-      const allSkills = await Skill.all()
+      const allSkills = placeholder ? [] : await Skill.all()
       if (allSkills.length > 0) {
         const byCategory = new Map<string, number>()
         for (const s of allSkills) {
@@ -1047,6 +1050,7 @@ export namespace SessionPrompt {
   }) {
     using _ = log.time("resolveTools")
     const tools: Record<string, AITool> = {}
+    if (Agent.isPlaceholder(input.agent)) return tools
 
     // Within-turn duplicate suppression (loop-termination). A weak model can emit the
     // SAME (tool+args) call dozens/hundreds of times in ONE generation. This resolveTools

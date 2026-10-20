@@ -15,7 +15,7 @@ import { clone, mergeDeep, pipe } from "remeda"
 import { ProviderTransform } from "@/provider/transform"
 import { Config } from "@/config/config"
 import { Instance } from "@/project/instance"
-import type { Agent } from "@/agent/agent"
+import { Agent } from "@/agent/agent"
 import type { MessageV2 } from "./message-v2"
 import { Plugin } from "@/plugin"
 import { SystemPrompt } from "./system"
@@ -112,7 +112,7 @@ export namespace LLM {
       mergeDeep(variant),
     )
     if (isCodex) {
-      options.instructions = SystemPrompt.instructions()
+      options.instructions = Agent.isPlaceholder(input.agent) ? input.agent.prompt : SystemPrompt.instructions()
     }
 
     const params = await Plugin.trigger(
@@ -164,7 +164,12 @@ export namespace LLM {
       input.model.providerID.toLowerCase().includes("litellm") ||
       input.model.api.id.toLowerCase().includes("litellm")
 
-    if (isLiteLLMProxy && Object.keys(tools).length === 0 && hasToolCalls(input.messages)) {
+    if (
+      !Agent.isPlaceholder(input.agent) &&
+      isLiteLLMProxy &&
+      Object.keys(tools).length === 0 &&
+      hasToolCalls(input.messages)
+    ) {
       tools["_noop"] = tool({
         description:
           "Placeholder for LiteLLM/Anthropic proxy compatibility - required when message history contains tool calls but no active tools are needed",
