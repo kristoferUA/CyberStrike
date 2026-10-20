@@ -1,0 +1,108 @@
+{
+  "repository": "https://github.com/ljagiello/ctf-skills",
+  "commit": "1fdf188cb7ac84a0a2697851aecab156f283e56b",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 Lukasz Jagiello",
+  "files": [
+    {
+      "upstream": "ctf-crypto/advanced-math.md",
+      "local": "references/advanced-math.md",
+      "sha256": "03cbcee0c382e01aedc47f382bf7059a7c33e02b6dd97f19cf90874fa468266b"
+    },
+    {
+      "upstream": "ctf-crypto/classic-ciphers.md",
+      "local": "references/classic-ciphers.md",
+      "sha256": "b0a3dbba036c5142b0612ac4c58848b920ccd59438c7d3db4db3813c0f9bf7fb"
+    },
+    {
+      "upstream": "ctf-crypto/dh-attacks.md",
+      "local": "references/dh-attacks.md",
+      "sha256": "2e627591c56292e22161162c8df7875f8eb25976ef8ec53e465ff31d60e8024f"
+    },
+    {
+      "upstream": "ctf-crypto/ecc-attacks.md",
+      "local": "references/ecc-attacks.md",
+      "sha256": "8d161d34fb43934e1b38de25e701b4a869eae3b8a4bc6411c4b97b66f0cbb4a9"
+    },
+    {
+      "upstream": "ctf-crypto/exotic-crypto-2.md",
+      "local": "references/exotic-crypto-2.md",
+      "sha256": "adcb344e0f93160aebfb582fcae3ec3f10a3452c6a1c045a2aee7a2a49356c69"
+    },
+    {
+      "upstream": "ctf-crypto/exotic-crypto.md",
+      "local": "references/exotic-crypto.md",
+      "sha256": "ed206348d371851b30733705e6de99a3e0cb85b2f92b20fdf6032ddd60c2dc9e"
+    },
+    {
+      "upstream": "ctf-crypto/historical.md",
+      "local": "references/historical.md",
+      "sha256": "feb06b3ac5a981082b9a20223f02db21d93a100df39b7b5dba4b578677cbef52"
+    },
+    {
+      "upstream": "ctf-crypto/lattice-and-lwe.md",
+      "local": "references/lattice-and-lwe.md",
+      "sha256": "4a5fe2ceb8449cafbcef49ae77f008870107b232e89ff17b0da2e391ef65494b"
+    },
+    {
+      "upstream": "ctf-crypto/modern-ciphers-2.md",
+      "local": "references/modern-ciphers-2.md",
+      "sha256": "8e15e324cd4f4c0f93d27b00e96a87085fda0cde219f333d8b518b48605bdb9b"
+    },
+    {
+      "upstream": "ctf-crypto/modern-ciphers-3.md",
+      "local": "references/modern-ciphers-3.md",
+      "sha256": "b86a6d65378ec04e57d3fe99ecd56778669716702567d63b6943d0bd026c308f"
+    },
+    {
+      "upstream": "ctf-crypto/modern-ciphers-4.md",
+      "local": "references/modern-ciphers-4.md",
+      "sha256": "1f88e0bf46144b3504dd445327d86541271366ccd38ea93db0269544b132d727"
+    },
+    {
+      "upstream": "ctf-crypto/modern-ciphers.md",
+      "local": "references/modern-ciphers.md",
+      "sha256": "17340ab9812dc4161abc21d344b72238ffb1a5b7561deee42f9fb9993d6d686f"
+    },
+    {
+      "upstream": "ctf-crypto/post-quantum.md",
+      "local": "references/post-quantum.md",
+      "sha256": "080001024b06be9b279779189a109fc8b4bafb7ecadca01b62ce27dcda268135"
+    },
+    {
+      "upstream": "ctf-crypto/prng-attacks.md",
+      "local": "references/prng-attacks.md",
+      "sha256": "0ff096a8f662cd9e4108c583b26cc5396a97f30220a7b6b67fb3f1f91ded214d"
+    },
+    {
+      "upstream": "ctf-crypto/prng.md",
+      "local": "references/prng.md",
+      "sha256": "984e2f480fd3834d00ba39b40b774f2b256636fe7ed06cb34b30f61d6d102c8a"
+    },
+    {
+      "upstream": "ctf-crypto/rsa-attacks-2.md",
+      "local": "references/rsa-attacks-2.md",
+      "sha256": "32b0e9a2e1b9d6576cab76d668a542f38f2bba5076f00a65909a2c9c5def68e2"
+    },
+    {
+      "upstream": "ctf-crypto/rsa-attacks.md",
+      "local": "references/rsa-attacks.md",
+      "sha256": "891dccd26a9af4db26137a01753f82d261ad36f638ebb3bf713956c4cf3eca70"
+    },
+    {
+      "upstream": "ctf-crypto/SKILL.md",
+      "local": "references/upstream-index.md",
+      "sha256": "3f73227dbf2b12c063d8df68a207430dfe1113f290a9da0fe2715f73fc74259c"
+    },
+    {
+      "upstream": "ctf-crypto/stream-ciphers.md",
+      "local": "references/stream-ciphers.md",
+      "sha256": "1b5ff4fbc2bb000a0cac3044e372588dd2d7fb83df51fdb1b24c7eef6fb11fa9"
+    },
+    {
+      "upstream": "ctf-crypto/zkp-and-advanced.md",
+      "local": "references/zkp-and-advanced.md",
+      "sha256": "bd1a0a270c3ea7cdb1b36ef93df468cb0343aa06c30095c3ceeeec503ef1324e"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+# Python 3.12; native wheels only. Regenerate requirements.lock with uv pip compile.
+pycryptodome
+sympy
+gmpy2
+z3-solver
+numpy
+scipy
+galois
+ecdsa
+py-ecc
+cryptography
+randcrack
+requests
+httpx

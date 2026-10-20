@@ -49,6 +49,7 @@ import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { Token } from "@/util/token"
 import { MethodologyContext } from "@/methodology/context"
+import { CryptoMethodology } from "../cryptography/methodology"
 import { AgentPerformance } from "@/methodology/performance"
 import { testerClass } from "@/tool/vuln-scope"
 import { stopHackbrowser } from "@/tool/hackbrowser-launcher"
@@ -632,7 +633,7 @@ export namespace SessionPrompt {
       if (
         lastFinished &&
         lastFinished.summary !== true &&
-        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model }))
+        (await SessionCompaction.isOverflow({ tokens: lastFinished.tokens, model, agent: lastUser.agent }))
       ) {
         await SessionCompaction.create({
           sessionID,
@@ -776,12 +777,17 @@ export namespace SessionPrompt {
       // Inject methodology context if the session has intel data. Scope it to the
       // running agent's lane when it's a proxy-tester (Phase 2.3) — orchestrator
       // (non-tester) gets the full routing view.
-      const methodologyCtx = MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
+      const placeholder = Agent.isPlaceholder(agent)
+      const cryptography = agent.name === "cryptography"
+      const methodologyCtx =
+        placeholder || cryptography
+          ? undefined
+          : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
       if (methodologyCtx) system.push(methodologyCtx)
 
       // Inject MCP tool availability info so the LLM knows to use tool_search
       const mcpLazyStats = LazyToolRegistry.stats()
-      if (mcpLazyStats.available > 0) {
+      if (!placeholder && !cryptography && mcpLazyStats.available > 0) {
         const allLazy = LazyToolRegistry.getAll()
         const byServer = new Map<string, string[]>()
         for (const t of allLazy) {
@@ -812,7 +818,7 @@ export namespace SessionPrompt {
 
       // Inject disabled MCP server awareness so the agent can remind the
       // user to enable them when relevant capabilities are needed.
-      const mcpStatus = await MCP.status()
+      const mcpStatus = placeholder || cryptography ? {} : await MCP.status()
       const disabledServers = Object.entries(mcpStatus)
         .filter(([, s]) => s.status === "disabled")
         .map(([name]) => name)
@@ -827,7 +833,9 @@ export namespace SessionPrompt {
       }
 
       // Inject skill awareness so the agent knows to use the skill tool
-      const allSkills = await Skill.all()
+      const allSkills = placeholder
+        ? []
+        : (await Skill.all()).filter((skill) => !cryptography || skill.category === "cryptography")
       if (allSkills.length > 0) {
         const byCategory = new Map<string, number>()
         for (const s of allSkills) {
@@ -848,8 +856,10 @@ export namespace SessionPrompt {
           lines.push("", "Recommended skills for this agent (load these first):")
           for (const name of agent.skills) lines.push(`- ${name}`)
         }
-        const loaded = SkillContext.active()
-        if (loaded.length > 0) {
+        const loaded = SkillContext.active().filter(
+          (name) => !cryptography || allSkills.some((skill) => skill.name === name),
+        )
+        if (!cryptography && loaded.length > 0) {
           lines.push("", `Currently loaded: ${loaded.join(", ")} (${SkillContext.tokenCount()} tokens)`)
         }
         system.push(lines.join("\n"))
@@ -862,7 +872,10 @@ export namespace SessionPrompt {
           : MessageV2.filterExcluded(sessionMessages, lastUser.id),
         model,
       )
-      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join(""))
+      // Put changing application state after replayable history so it does not
+      // invalidate the stable system/history prefix on each milestone update.
+      const cryptoContext = cryptography ? await CryptoMethodology.context(Session.root(sessionID)) : ""
+      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join("") + cryptoContext)
       const preflightLimit = model.limit.input
         ? model.limit.input
         : model.limit.context - ProviderTransform.maxOutputTokens(model)
@@ -889,6 +902,18 @@ export namespace SessionPrompt {
         system,
         messages: [
           ...modelMessages,
+          ...(cryptography
+            ? [
+                {
+                  role: "system" as const,
+                  content:
+                    cryptoContext +
+                    (step % 8 === 0
+                      ? `\nExecution checkpoint: ${step} model steps in this run. Prioritize the strongest measured invariant and one discriminating experiment; return an already verified result without further bookkeeping.`
+                      : ""),
+                },
+              ]
+            : []),
           ...(wrapUp
             ? [
                 {
@@ -1047,6 +1072,7 @@ export namespace SessionPrompt {
   }) {
     using _ = log.time("resolveTools")
     const tools: Record<string, AITool> = {}
+    if (Agent.isPlaceholder(input.agent)) return tools
 
     // Within-turn duplicate suppression (loop-termination). A weak model can emit the
     // SAME (tool+args) call dozens/hundreds of times in ONE generation. This resolveTools
@@ -1146,6 +1172,10 @@ export namespace SessionPrompt {
         },
       })
     }
+
+    // The crypto profile uses its dedicated local/SageCell tools rather than
+    // initializing unrelated penetration-testing MCP servers.
+    if (input.agent.name === "cryptography") return tools
 
     // Initialize lazy tool registry for MCP tools
     await ToolRegistry.initLazyRegistry()

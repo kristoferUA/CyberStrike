@@ -77,7 +77,7 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
 
       if (params.action === "list") {
         if (params.loaded) {
-          const active = SkillContext.active()
+          const active = SkillContext.active().filter((name) => accessibleSkills.some((skill) => skill.name === name))
           const tokens = SkillContext.tokenCount()
           if (active.length === 0)
             return {
@@ -130,22 +130,20 @@ export const SkillTool = Tool.define("skill", async (ctx) => {
         let totalCount = 0
 
         if (params.cwe) {
-          results = SkillIndex.byCWE(params.cwe, limit)
-          totalCount = SkillIndex.byCWE(params.cwe, Infinity).length
+          results = SkillIndex.byCWE(params.cwe, Infinity)
         } else if (params.tech?.length) {
-          results = SkillIndex.byTechStack(params.tech, limit)
-          totalCount = SkillIndex.byTechStack(params.tech, Infinity).length
+          results = SkillIndex.byTechStack(params.tech, Infinity)
         } else if (params.category) {
-          results = SkillIndex.byCategory(params.category, limit)
-          totalCount = SkillIndex.byCategory(params.category, Infinity).length
+          results = SkillIndex.byCategory(params.category, Infinity)
         } else if (params.query) {
-          results = SkillIndex.search(params.query, limit)
-          totalCount = results.length
+          results = SkillIndex.search(params.query, Infinity)
         } else {
-          results = SkillIndex.all().slice(0, limit)
-          totalCount = SkillIndex.all().length
+          results = SkillIndex.all()
         }
 
+        const allowed = results.filter((result) => accessibleSkills.some((skill) => skill.name === result.name))
+        totalCount = allowed.length
+        results = allowed.slice(0, limit)
         if (results.length === 0)
           return {
             title: "No results",

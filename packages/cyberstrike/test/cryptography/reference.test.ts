@@ -1,0 +1,44 @@
+import { describe, expect, test } from "bun:test"
+import path from "node:path"
+import { searchReferences } from "../../src/cryptography/reference"
+import { CRYPTO_REFERENCES } from "../../src/cryptography/catalog"
+import { CryptoReferenceTool } from "../../src/tool/cryptography"
+
+describe("crypto reference search", () => {
+  test("read accepts an unused zero limit without a repair round trip", async () => {
+    const tool = await CryptoReferenceTool.init()
+    expect(tool.parameters.parse({ action: "read", topic: "modern-ciphers-2", limit: 0 }).limit).toBe(0)
+  })
+
+  test("ranks separate keywords and integral/square synonyms", () => {
+    const result = searchReferences(
+      [
+        { topic: "integrals", text: "# Square attack\nIntegral cryptanalysis exploits balanced XOR sums." },
+        { topic: "other", text: "# AES\nA block cipher encrypts a block." },
+      ],
+      "integral cryptanalysis algebraic degree interpolation low-degree block cipher",
+    )
+    expect(result.hits[0].topic).toBe("integrals")
+    expect(result.hits[0].excerpt).toContain("Square attack")
+  })
+
+  test("retrieves the relevant section from the real pinned library", async () => {
+    const root = path.resolve(import.meta.dir, "../../../../.cyberstrike/skill/cryptography/ctf-crypto/references")
+    const documents = await Promise.all(
+      CRYPTO_REFERENCES.map(async (topic) => ({
+        topic,
+        text: await Bun.file(path.join(root, topic + ".md")).text(),
+      })),
+    )
+    const result = searchReferences(
+      documents,
+      "integral cryptanalysis algebraic degree interpolation low-degree block cipher",
+    )
+    expect(result.hits.some((hit) => hit.topic === "modern-ciphers-2" && /integral/i.test(hit.excerpt))).toBe(true)
+  })
+
+  test("bounds results and handles punctuation/no matches", () => {
+    expect(searchReferences([{ topic: "a", text: "nothing relevant" }], "!!!!").hits).toEqual([])
+    expect(searchReferences([{ topic: "a", text: "# RSA\n" + "rsa\n".repeat(100) }], "rsa", 2).hits.length).toBe(2)
+  })
+})

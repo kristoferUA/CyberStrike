@@ -9,8 +9,18 @@ import { afterAll } from "bun:test"
 // Set XDG env vars FIRST, before any src/ imports
 const dir = path.join(os.tmpdir(), "cyberstrike-test-data-" + process.pid)
 await fs.mkdir(dir, { recursive: true })
-afterAll(() => {
-  fsSync.rmSync(dir, { recursive: true, force: true })
+afterAll(async () => {
+  if (path.dirname(path.resolve(dir)) !== path.resolve(os.tmpdir())) throw new Error("Unexpected test cleanup path")
+  const { Instance } = await import("../src/project/instance")
+  await Instance.disposeAll()
+  if (fsSync.existsSync(path.join(dir, "share", "cyberstrike", "cyberstrike.db"))) {
+    const { Database } = await import("../src/storage/db")
+    Database.Client().$client.close()
+    Database.Client.reset()
+  }
+  await Log.close()
+  Bun.gc(true)
+  await fs.rm(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 50 })
 })
 
 process.env["XDG_DATA_HOME"] = path.join(dir, "share")

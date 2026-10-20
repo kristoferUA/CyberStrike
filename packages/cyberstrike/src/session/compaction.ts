@@ -14,6 +14,7 @@ import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
+import { CryptoSettings } from "../cryptography/schema"
 
 export namespace SessionCompaction {
   const log = Log.create({ service: "session.compaction" })
@@ -29,7 +30,11 @@ export namespace SessionCompaction {
 
   const COMPACTION_BUFFER = 20_000
 
-  export async function isOverflow(input: { tokens: MessageV2.Assistant["tokens"]; model: Provider.Model }) {
+  export async function isOverflow(input: {
+    tokens: MessageV2.Assistant["tokens"]
+    model: Provider.Model
+    agent?: string
+  }) {
     const config = await Config.get()
     if (config.compaction?.auto === false) return false
     const context = input.model.limit.context
@@ -44,7 +49,11 @@ export namespace SessionCompaction {
     const usable = input.model.limit.input
       ? input.model.limit.input - reserved
       : context - ProviderTransform.maxOutputTokens(input.model)
-    return count >= usable
+    const target =
+      input.agent === "cryptography"
+        ? Math.min(usable, CryptoSettings.parse(config.cryptography ?? {}).context_target_tokens)
+        : usable
+    return count >= target
   }
 
   export const PRUNE_MINIMUM = 20_000
@@ -182,7 +191,17 @@ Rules:
 - Preserve exact file paths, symbols, commands, error strings, URLs, and identifiers when known.
 - Do not mention the summary process or that context was compacted.`
 
-    const promptText = compacting.prompt ?? [defaultPrompt, ...compacting.context].join("\n\n")
+    const promptText =
+      compacting.prompt ??
+      [
+        defaultPrompt,
+        ...compacting.context,
+        ...(userMessage.agent === "cryptography"
+          ? [
+              "Preserve the exact crypto model/equations, knowns/unknowns, strongest measured invariants, candidate and verification status, script paths and latest outputs, query/work budgets, and failed experiments with their stopping reasons. A timeout is not an unsatisfiability proof. Preserve the user's selected effort and solve/report preference. Do not restart abandoned approaches without new evidence. Keep large tables and ciphertext in their existing local files; cite their paths.",
+            ]
+          : []),
+      ].join("\n\n")
     // Limit messages sent to compaction agent to prevent double-overflow
     const compactionLimit = model.limit.input
       ? model.limit.input
@@ -244,6 +263,7 @@ Rules:
         },
         agent: userMessage.agent,
         model: userMessage.model,
+        variant: userMessage.variant,
       })
       await Session.updatePart({
         id: Identifier.ascending("part"),
@@ -274,12 +294,18 @@ Rules:
       auto: z.boolean(),
     }),
     async (input) => {
+      // Compaction creates a synthetic user turn; retain the latest user's
+      // variant so context maintenance cannot silently reset TUI effort.
+      const previous = (await Session.messages({ sessionID: input.sessionID })).findLast(
+        (message) => message.info.role === "user",
+      )
       const msg = await Session.updateMessage({
         id: Identifier.ascending("message"),
         role: "user",
         model: input.model,
         sessionID: input.sessionID,
         agent: input.agent,
+        variant: previous?.info.role === "user" ? previous.info.variant : undefined,
         time: {
           created: Date.now(),
         },

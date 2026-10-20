@@ -1,4 +1,11 @@
 import { QuestionTool } from "./question"
+import {
+  CryptoEnvironmentTool,
+  CryptoRunTool,
+  CryptoSageTool,
+  CryptoReferenceTool,
+  CryptoMethodologyTool,
+} from "./cryptography"
 import { BashTool } from "./bash"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
@@ -197,6 +204,11 @@ export namespace ToolRegistry {
       GetCoverageNotesTool,
       ScopeCheckTool,
       EnsureToolsTool,
+      CryptoEnvironmentTool,
+      CryptoRunTool,
+      CryptoSageTool,
+      CryptoReferenceTool,
+      CryptoMethodologyTool,
       MethodologyStatusTool,
       AttackScriptTool,
       GenerateReportTool,

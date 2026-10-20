@@ -10,6 +10,8 @@ Fork additions: a Windows terminal startup fix, ChatGPT plan sign-in without an 
 
 The feature overview below is inherited from [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Preserve its AGPL-3.0 license when distributing this fork.
 
+**Cryptography (CTF.5):** eight CTF skills, 19 pinned reference chapters, an evidence workflow and a managed Python toolchain. Run `cyberstrike crypto setup`, then `cyberstrike --agent cryptography` or `cyberstrike claude --agent cryptography`. Sage uses the public SageCell HTTPS API. [Setup and usage (Українська)](docs/cryptography.uk.md).
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.zh.md">简体中文</a> |

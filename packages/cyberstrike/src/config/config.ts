@@ -1251,6 +1251,35 @@ export namespace Config {
           url: z.string().optional().describe("Enterprise URL"),
         })
         .optional(),
+      cryptography: z
+        .object({
+          workflow: z
+            .enum(["solve", "report"])
+            .optional()
+            .describe("Default crypto workflow: solve returns a verified result; report also requires a full writeup"),
+          experiment_timeout_seconds: z
+            .number()
+            .int()
+            .min(1)
+            .max(300)
+            .optional()
+            .describe("Initial crypto hypothesis execution budget in seconds (default: 30)"),
+          solver_timeout_seconds: z
+            .number()
+            .int()
+            .min(1)
+            .max(300)
+            .optional()
+            .describe("Established crypto solver/verification budget in seconds (default: 120)"),
+          context_target_tokens: z
+            .number()
+            .int()
+            .min(16000)
+            .max(256000)
+            .optional()
+            .describe("Crypto context compaction target, bounded by model limits (default: 64000)"),
+        })
+        .optional(),
       compaction: z
         .object({
           auto: z.boolean().optional().describe("Enable automatic compaction when context is full (default: true)"),

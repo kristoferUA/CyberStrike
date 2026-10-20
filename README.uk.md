@@ -10,6 +10,8 @@
 
 Опис можливостей нижче успадкований від [CyberStrike upstream](https://github.com/CyberStrikeus/CyberStrike). Форк зберігає ліцензію AGPL-3.0. Пакет npm та інсталятор оригінального проєкту не містять цих змін.
 
+**Cryptography (CTF.5):** 8 CTF-скілів, 19 довідкових розділів, методика з доказами та ізольований Python-інструментарій. `cyberstrike crypto setup`, потім `cyberstrike --agent cryptography` або `cyberstrike claude --agent cryptography`. Sage працює через публічний API SageCell. [Сетап та використання](docs/cryptography.uk.md).
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.zh.md">简体中文</a> |
