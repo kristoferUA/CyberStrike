@@ -17,6 +17,30 @@ describe("Patch namespace", () => {
   })
 
   describe("parsePatch", () => {
+    test.each([
+      String.raw`F:\Projects\ctf\testctf\solve.py`,
+      "F:/Projects/ctf/testctf/solve.py",
+      String.raw`C:\Users\Test User\CTF\solver.py`,
+      String.raw`\\server\share\ctf\solver.py`,
+      "/tmp/ctf:example/solver.py",
+      "nested/solver.py",
+    ])("preserves full add/update/delete/move paths: %s", (filename) => {
+      const moved = `${filename}.moved`
+      const result = Patch.parsePatch(
+        `*** Begin Patch\n*** Add File: ${filename}\n+old\n*** Update File: ${filename}\n*** Move to: ${moved}\n@@\n-old\n+new\n*** Delete File: ${filename}\n*** End Patch`,
+      )
+      expect(result.hunks).toEqual([
+        { type: "add", path: filename, contents: "old" },
+        {
+          type: "update",
+          path: filename,
+          move_path: moved,
+          chunks: [{ old_lines: ["old"], new_lines: ["new"], change_context: undefined, is_end_of_file: undefined }],
+        },
+        { type: "delete", path: filename },
+      ])
+    })
+
     test("should parse simple add file patch", () => {
       const patchText = `*** Begin Patch
 *** Add File: test.txt
