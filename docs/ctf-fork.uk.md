@@ -117,3 +117,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 ## Походження та ліцензія
 
 Основа: [CyberStrikeus/CyberStrike](https://github.com/CyberStrikeus/CyberStrike), коміт `ec4fe5c4252668f2acea7665e7c7c1edcd892c65`. Збережено авторські повідомлення та [AGPL-3.0](../LICENSE). Цей форк не є офіційним релізом OpenAI або CyberStrike.
+
+## Pwn та локальна база знань для Codex (CTF.8)
+
+Профіль `pwn` містить 8 скілів, 22 піновані матеріали й власну методику. На Windows потрібні WSL2/Ubuntu; `script/setup-pwn-windows.ps1` підготує чисту машину й окреме оточення з pwntools, QEMU та GDB-multiarch. Codex спочатку читає локальні матеріали відповідної категорії через `cyberstrike knowledge` і може сам запускати `cyberstrike pwn debug/run/inspect` без іншої моделі. [Повна інструкція](pwn.uk.md).

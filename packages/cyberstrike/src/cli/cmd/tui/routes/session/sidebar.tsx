@@ -12,6 +12,7 @@ import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { formatEndpointHost } from "@tui/util/format"
+import { PWN_PHASES } from "@/pwn/catalog"
 import { CRYPTO_PHASES } from "@/cryptography/catalog"
 import { CryptoProgress } from "@/cryptography/schema"
 
@@ -62,30 +63,34 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const functions = createMemo(() => sync.data.web_function[props.sessionID] ?? [])
   const retests = createMemo(() => sync.data.web_retest[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
+  const pwnMode = createMemo(() => messages().findLast((message) => message.role === "user")?.agent === "pwn")
   const cryptoMode = createMemo(
-    () => messages().findLast((message) => message.role === "user")?.agent === "cryptography",
+    () => messages().findLast((message) => message.role === "user")?.agent === "cryptography" || pwnMode(),
   )
   const cryptoProgress = createMemo(() => {
     if (!cryptoMode()) return undefined
     for (const message of messages().toReversed()) {
       const part = (sync.data.part[message.id] ?? []).findLast(
-        (part) => part.type === "tool" && part.tool === "crypto_methodology" && part.state.status === "completed",
+        (part) =>
+          part.type === "tool" &&
+          part.tool === (pwnMode() ? "pwn_methodology" : "crypto_methodology") &&
+          part.state.status === "completed",
       )
       if (part?.type !== "tool" || part.state.status !== "completed") continue
-      const parsed = CryptoProgress.safeParse(part.state.metadata.cryptography)
+      const parsed = CryptoProgress.safeParse(part.state.metadata[pwnMode() ? "pwn" : "cryptography"])
       if (parsed.success) return parsed.data
     }
-    const workflow = sync.data.config.cryptography?.workflow ?? "solve"
+    const workflow = (pwnMode() ? sync.data.config.pwn : sync.data.config.cryptography)?.workflow ?? "solve"
     return {
       workflow,
       ready: false,
-      phases: CRYPTO_PHASES.map((phase) => ({
+      phases: (pwnMode() ? PWN_PHASES : CRYPTO_PHASES).map((phase) => ({
         ...phase,
         status: "not_started" as const,
         required: workflow === "report" || ["recovery", "verification"].includes(phase.id),
       })),
       completed: 0,
-      total: workflow === "report" ? CRYPTO_PHASES.length : 2,
+      total: workflow === "report" ? (pwnMode() ? PWN_PHASES : CRYPTO_PHASES).length : 2,
       percent: 0,
     }
   })
@@ -305,7 +310,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
             <Show when={cryptoProgress()}>
               <box>
                 <text fg={theme.text}>
-                  <b>Cryptography</b>
+                  <b>{pwnMode() ? "Pwn" : "Cryptography"}</b>
                 </text>
                 <text fg={theme.textMuted}>
                   {cryptoProgress()!.workflow ?? "report"}: {cryptoProgress()!.completed}/{cryptoProgress()!.total}{" "}

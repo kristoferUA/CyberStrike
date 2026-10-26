@@ -113,7 +113,7 @@ export namespace LLM {
     )
     if (isCodex) {
       options.instructions =
-        Agent.isPlaceholder(input.agent) || input.agent.name === "cryptography"
+        Agent.isPlaceholder(input.agent) || ["cryptography", "pwn"].includes(input.agent.name)
           ? input.agent.prompt
           : SystemPrompt.instructions()
     }

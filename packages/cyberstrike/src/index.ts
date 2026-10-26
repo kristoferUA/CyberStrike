@@ -30,6 +30,8 @@ import { SessionCommand } from "./cli/cmd/session"
 import { ProviderCommand } from "./cli/cmd/provider"
 import { SkillCommand } from "./cli/cmd/skill"
 import { ClaudeCommand } from "./cli/cmd/claude"
+import { PwnCommand } from "./cli/cmd/pwn"
+import { KnowledgeCommand } from "./cli/cmd/knowledge"
 import { CryptoCommand } from "./cli/cmd/crypto"
 import { ClaudeToolsCommand } from "./cli/cmd/claude-tools"
 import path from "path"
@@ -151,6 +153,8 @@ const cli = yargs(hideBin(process.argv))
   .command(SkillCommand)
   .command(ClaudeCommand)
   .command(CryptoCommand)
+  .command(PwnCommand)
+  .command(KnowledgeCommand)
   .command(ClaudeToolsCommand)
   .fail((msg, err) => {
     if (

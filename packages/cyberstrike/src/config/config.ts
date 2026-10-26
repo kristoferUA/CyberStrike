@@ -3,6 +3,7 @@ import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
 import z from "zod"
+import { PwnSettings } from "../pwn/schema"
 import { Filesystem } from "../util/filesystem"
 import { ModelsDev } from "../provider/models"
 import { mergeDeep, pipe, unique } from "remeda"
@@ -1251,6 +1252,9 @@ export namespace Config {
           url: z.string().optional().describe("Enterprise URL"),
         })
         .optional(),
+      pwn: PwnSettings.partial()
+        .optional()
+        .describe("CTF pwn workflow, Ubuntu distribution, budgets and context target"),
       cryptography: z
         .object({
           workflow: z

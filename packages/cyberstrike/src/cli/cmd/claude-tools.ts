@@ -22,6 +22,7 @@ import { HackbrowserStatus } from "../../session/hackbrowser-status"
 import { Installation } from "../../installation"
 import { CLAUDE_CTF } from "./claude"
 import { claudePath } from "../../provider/claude-code"
+import { PwnMethodology } from "../../pwn/methodology"
 import { CryptoMethodology } from "../../cryptography/methodology"
 
 export const ClaudeToolsCommand = cmd({
@@ -32,7 +33,7 @@ export const ClaudeToolsCommand = cmd({
       .option("model", { type: "string", default: "sonnet", describe: "native Claude Code browser planner model" })
       .option("agent", {
         type: "string",
-        choices: ["cyberstrike", "cryptography"] as const,
+        choices: ["cyberstrike", "cryptography", "pwn"] as const,
         default: "cyberstrike",
         describe: "CyberStrike CTF profile",
       })
@@ -49,16 +50,19 @@ export const ClaudeToolsCommand = cmd({
       const agent = await Agent.get(args.agent)
       if (!agent) throw new Error("The CyberStrike agent is unavailable.")
       const session = await Session.create({ title: `Claude Code ${args.agent} CTF` })
-      const http =
-        args.agent === "cryptography" ? undefined : Server.listen({ hostname: "127.0.0.1", port: 0, webUI: false })
+      const http = ["cryptography", "pwn"].includes(args.agent)
+        ? undefined
+        : Server.listen({ hostname: "127.0.0.1", port: 0, webUI: false })
       const server = new McpServer(
         { name: "cyberstrike-ctf", version: Installation.VERSION },
         {
           capabilities: { tools: {} },
           instructions:
-            args.agent === "cryptography"
-              ? agent.prompt + "\n\n" + (await CryptoMethodology.context(Session.root(session.id)))
-              : CLAUDE_CTF,
+            args.agent === "pwn"
+              ? agent.prompt + "\n\n" + (await PwnMethodology.context(Session.root(session.id)))
+              : args.agent === "cryptography"
+                ? agent.prompt + "\n\n" + (await CryptoMethodology.context(Session.root(session.id)))
+                : CLAUDE_CTF,
         },
       )
       // Native Claude supplies file, shell and task tools with its own permission

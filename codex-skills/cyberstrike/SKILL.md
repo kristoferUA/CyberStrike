@@ -1,11 +1,21 @@
 ---
 name: cyberstrike
-description: Set up and use the CyberStrike CTF fork with ChatGPT plan sign-in or native Claude Code subscription mode for challenge-provided targets and authorized training labs.
+description: Set up and use CyberStrike for scoped CTFs and authorized labs, consulting local category knowledge and WSL QEMU/GDB for pwn; support ChatGPT or native Claude sign-in.
 ---
 
 # CyberStrike for CTF
 
 Use this skill for CyberStrike setup, operation and interpretation of CTF results.
+
+## Consult the matching local knowledge first
+
+Before choosing an attack or writing a solver, identify the challenge category and inspect the matching local skill/index. Read only the relevant technique sections, record the useful preconditions, and use them with Codex's own file/shell tools. Do not answer from memory alone when the local category materials are available.
+
+- Locate the existing CyberStrike launcher/checkout with `Get-Command cyberstrike` / `where.exe cyberstrike` on Windows or `command -v cyberstrike` on Linux. Keep the full launcher path when changing into the challenge directory.
+- Inventory the two indexed categories with `cyberstrike knowledge list`. For pwn use `cyberstrike knowledge search "stack canary ROP" --category pwn --limit 5`, then `cyberstrike knowledge read overflow-basics --category pwn --start-line 1 --lines 120`. For cryptography use the same commands with `--category cryptography` and a relevant query, e.g. `RSA shared prime` or `integral`.
+- These commands only read local knowledge; they do not ask another model or spend a CyberStrike subscription request. If the CLI is unavailable, read `.cyberstrike/skill/<category>/ctf-*/SKILL.md` and matching `references/*.md` in the checkout, or `bin/skills/<category>` in a complete packaged build.
+- Other installed categories (WEB, attack-*, cloud, etc.) remain file-based: inventory `.cyberstrike/skill` and read the matching skill/references. Do not claim that knowledge CLI indexes a category it does not list, or use Linux/Windows post-exploitation materials without the corresponding explicitly scoped lab task.
+- Honor restrictions on writeups and network use. The pwn bundle contains general technique chapters rather than per-challenge pwnable walkthroughs. Validate architecture/version assumptions in examples; do not execute upstream installer snippets. If no suitable local material exists, say so and use the permitted sources/tools for the current task.
 
 ## Setup
 
@@ -29,6 +39,15 @@ Use this skill for CyberStrike setup, operation and interpretation of CTF result
 - Use `crypto_run` for reviewed local solvers and bounded byte/exact-arithmetic helpers. Keep file access, oracle collection and final verification local. Optional OpenSSL/Hashcat/John are used only if separately installed on PATH.
 - Use `crypto_sage` or `cyberstrike crypto sage file.sage` for short self-contained mathematical steps through the public SageCell API. Code and embedded values leave the machine; send public CTF parameters, not credentials, recovered private keys or flags. Calls are stateless, currently limited to 30 seconds, and cannot access local files/network oracles. Print small results; respect limits and do not automatically retry or accept terms for the user.
 - Save solver/checker evidence and verify candidates against original equations, re-encryption or the challenge checker. Recorded phase completion is a claim, not automatic proof of correctness. The reference library retains its pinned source commit and MIT license.
+
+## Pwn CTF profile and tools available to Codex
+
+- Read `docs/pwn.uk.md` and the local `ctf-pwn` skill before solving. Match the observed primitive to pwn-triage, pwn-stack-rop, pwn-format-string, pwn-heap, pwn-cross-arch, pwn-kernel or pwn-windows; consult only their matching chapters.
+- On a fresh Windows machine, run `script/setup-pwn-windows.ps1` from the checkout. It handles official WSL/Ubuntu installation and installs QEMU/GDB/system packages plus a hash-locked Python 3.12 environment. A Windows restart or first-run Linux account creation may require the user; preserve existing distributions/default users and never request a password in chat. For another Ubuntu name use `-Distribution` and CLI `--distribution` or `pwn.distribution` config.
+- Use `cyberstrike pwn status`, `cyberstrike pwn inspect ./challenge`, and `cyberstrike pwn run ./exploit.py -- --local` directly from Codex. These invoke the tools without another model. Linux binaries run as the normal Ubuntu user; WSL/QEMU are not sandboxes.
+- For cross-arch ELF debugging, save/review a GDB command file and run `cyberstrike pwn debug ./challenge --arch aarch64 --sysroot /usr/aarch64-linux-gnu --gdb-script ./trace.gdb --timeout 30`. Static binaries need no sysroot; architecture can be detected from ELF. Use `--stdin-file` for exact payload bytes. The tool starts/cleans its own QEMU, uses a private debugger socket/namespace and saves logs in `pwn-debug-<id>`.
+- QEMU user-mode does not execute PE or boot kernel images. For a supplied kernel VM use the installed qemu-system and the challenge launch assets in that disposable lab; never load vulnerable modules into the WSL/Windows host. Windows PE needs its matching Windows lab debugger.
+- CyberStrike's own TUI profile is `cyberstrike --agent pwn`; native Claude supports `cyberstrike claude --agent pwn --model sonnet`. Keep the selected effort, use bounded experiments and reuse unchanged results. Save exploit.py and verify the real challenge/checker in a fresh process before claiming success; return a verified result promptly, with a full report only when requested.
 
 ## CTF scope
 

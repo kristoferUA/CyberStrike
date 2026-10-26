@@ -1,0 +1,6 @@
+tools/pwn/*.sh text eol=lf
+tools/pwn/*.lock text eol=lf
+tools/pwn/*.py text eol=lf
+.cyberstrike/skill/pwn/ctf-pwn/references/*.md text eol=lf
+.cyberstrike/skill/pwn/ctf-pwn/LICENSE text eol=lf
+.cyberstrike/skill/cryptography/ctf-crypto/references/*.md text eol=lf

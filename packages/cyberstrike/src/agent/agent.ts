@@ -4,6 +4,8 @@ import { Provider } from "../provider/provider"
 import { generateObject, streamObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
 import PROMPT_CRYPTOGRAPHY from "./prompt/cryptography.txt"
+import PROMPT_PWN from "./prompt/pwn.txt"
+import { PWN_SKILLS } from "../pwn/catalog"
 import { CRYPTO_SKILLS } from "../cryptography/catalog"
 import { Instance } from "../project/instance"
 import { Truncate } from "../tool/truncation"
@@ -231,6 +233,41 @@ export namespace Agent {
             crypto_reference: "allow",
             crypto_methodology: "allow",
             crypto_install: "ask",
+            external_directory: { "*": "ask", [Truncate.GLOB]: "allow" },
+          }),
+          user,
+        ),
+        options: {},
+      },
+      pwn: {
+        name: "pwn",
+        description:
+          "CTF pwn specialist: ELF triage, memory corruption, stack/ROP, format strings, heap, QEMU and GDB through Ubuntu/WSL2.",
+        prompt: PROMPT_PWN,
+        mode: "all",
+        native: true,
+        skills: PWN_SKILLS,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+            glob: "allow",
+            grep: "allow",
+            write: "allow",
+            edit: "allow",
+            apply_patch: "allow",
+            bash: "allow",
+            question: "allow",
+            todowrite: "allow",
+            webfetch: "allow",
+            skill: { "*": "deny", "ctf-pwn": "allow", "pwn-*": "allow" },
+            pwn_environment: "allow",
+            pwn_run: "allow",
+            pwn_debug: "allow",
+            pwn_reference: "allow",
+            pwn_methodology: "allow",
+            pwn_install: "ask",
             external_directory: { "*": "ask", [Truncate.GLOB]: "allow" },
           }),
           user,

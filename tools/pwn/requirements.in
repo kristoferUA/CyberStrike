@@ -1,0 +1,7 @@
+pwntools==4.15.0
+ROPgadget==7.7
+ropper==1.13.13
+capstone
+unicorn
+pyelftools
+keystone-engine

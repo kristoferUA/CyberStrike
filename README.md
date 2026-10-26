@@ -12,6 +12,8 @@ The feature overview below is inherited from [CyberStrike upstream](https://gith
 
 **Cryptography (CTF.5):** eight CTF skills, 19 pinned reference chapters, an evidence workflow and a managed Python toolchain. Run `cyberstrike crypto setup`, then `cyberstrike --agent cryptography` or `cyberstrike claude --agent cryptography`. Sage uses the public SageCell HTTPS API. [Setup and usage (Українська)](docs/cryptography.uk.md).
 
+**Pwn (CTF.8):** eight skills, 22 pinned knowledge files, WSL2/Ubuntu installer, managed pwntools and QEMU + GDB-multiarch. Use `cyberstrike --agent pwn`; Codex can use `cyberstrike knowledge` and `cyberstrike pwn debug/run/inspect` directly. [Fresh Windows setup and usage (Українська)](docs/pwn.uk.md).
+
 <p align="center">
   <a href="README.md">English</a> |
   <a href="README.zh.md">简体中文</a> |
