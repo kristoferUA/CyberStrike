@@ -10,6 +10,13 @@ export const GlobTool = Tool.define("glob", {
   description: DESCRIPTION,
   parameters: z.object({
     pattern: z.string().describe("The glob pattern to match files against"),
+    timeout_seconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(60)
+      .default(10)
+      .describe("Search deadline in seconds; narrow the path/pattern before increasing it"),
     path: z
       .string()
       .optional()
@@ -35,24 +42,43 @@ export const GlobTool = Tool.define("glob", {
     const limit = 100
     const files = []
     let truncated = false
-    for await (const file of Ripgrep.files({
-      cwd: search,
-      glob: [params.pattern],
-      signal: ctx.abort,
-    })) {
-      if (files.length >= limit) {
-        truncated = true
-        break
+    const timeout = AbortSignal.timeout(params.timeout_seconds * 1000)
+    const signal = AbortSignal.any([ctx.abort, timeout])
+    await ctx.metadata({
+      title: `Searching ${search}`,
+      metadata: { pattern: params.pattern, path: search, matched: 0 },
+    })
+    try {
+      for await (const file of Ripgrep.files({
+        cwd: search,
+        glob: [params.pattern],
+        signal,
+      })) {
+        if (files.length >= limit) {
+          truncated = true
+          break
+        }
+        const full = path.resolve(search, file)
+        const stats = await Bun.file(full)
+          .stat()
+          .then((x) => x.mtime.getTime())
+          .catch(() => 0)
+        files.push({
+          path: full,
+          mtime: stats,
+        })
+        if (files.length === 1 || files.length % 25 === 0)
+          await ctx.metadata({
+            title: `Searching ${search}: ${files.length} matches`,
+            metadata: { pattern: params.pattern, path: search, matched: files.length },
+          })
       }
-      const full = path.resolve(search, file)
-      const stats = await Bun.file(full)
-        .stat()
-        .then((x) => x.mtime.getTime())
-        .catch(() => 0)
-      files.push({
-        path: full,
-        mtime: stats,
-      })
+    } catch (error) {
+      if (!ctx.abort.aborted && timeout.aborted)
+        throw new Error(
+          `Glob timed out after ${params.timeout_seconds}s in ${search} (${files.length} matches collected). Use a narrower challenge directory or pattern; do not recursively inventory the entire home directory for a tool/status diagnostic.`,
+        )
+      throw error
     }
     files.sort((a, b) => b.mtime - a.mtime)
 

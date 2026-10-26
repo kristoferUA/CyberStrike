@@ -10,7 +10,7 @@ $ErrorActionPreference = 'Stop'
 $root = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $bun = (Get-Command bun -ErrorAction Stop).Source
 $package = Get-Content -LiteralPath (Join-Path $root 'packages/cyberstrike/package.json') -Raw | ConvertFrom-Json
-if (-not $Version) { $Version = "$($package.version)-ctf.8" }
+if (-not $Version) { $Version = "$($package.version)-ctf.9" }
 if ($ModelsPath) { $ModelsPath = (Resolve-Path -LiteralPath $ModelsPath).Path }
 
 $names = @('CYBERSTRIKE_VERSION', 'CYBERSTRIKE_CHANNEL', 'CYBERSTRIKE_BUMP', 'CYBERSTRIKE_RELEASE', 'CYBERSTRIKE_BUILD_OS', 'CYBERSTRIKE_DIST_DIR', 'MODELS_DEV_API_JSON')

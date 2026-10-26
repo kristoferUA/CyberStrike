@@ -26,6 +26,7 @@ import { PermissionNext } from "@/permission/next"
 import { Global } from "@/global"
 import type { LanguageModelV2Usage } from "@ai-sdk/provider"
 import { iife } from "@/util/iife"
+import { reportedTokens } from "@/util/token-usage"
 
 export namespace Session {
   const log = Log.create({ service: "session" })
@@ -569,9 +570,9 @@ export namespace Session {
   })
 
   // Pure aggregation over assistant message infos. `totalTokens` is cumulative
-  // tokens PROCESSED (billed) — input+output+reasoning+cache.read+cache.write
-  // summed per turn, so resent history is re-counted on purpose (it matches what
-  // was billed; this is NOT the unique context size). `totalCost` sums the
+  // tokens PROCESSED — input+output+cache.read+cache.write (reasoning is in output)
+  // summed per turn, so resent history is re-counted on purpose (this is NOT
+  // unique context size or account usage). `totalCost` sums the
   // already-computed per-message cost — never re-priced (each cost already bakes
   // in the right over-200k tier and per-bucket rate; see this file's cost calc).
   export function sumUsage(infos: MessageV2.Info[]): { totalCost: number; totalTokens: number } {
@@ -581,9 +582,7 @@ export namespace Session {
       if (m.role !== "assistant") continue
       totalCost += m.cost ?? 0
       const t = m.tokens
-      if (t)
-        totalTokens +=
-          (t.input ?? 0) + (t.output ?? 0) + (t.reasoning ?? 0) + (t.cache?.read ?? 0) + (t.cache?.write ?? 0)
+      if (t) totalTokens += reportedTokens(t) ?? 0
     }
     return { totalCost, totalTokens }
   }

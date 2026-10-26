@@ -34,7 +34,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 .\bin\cyberstrike.cmd pwn status
 ```
 
-Очікується `1.1.16-ctf.8` або новіша, `ready: true`, `lockMatches: true`. Установка не перезавантажує Windows сама, не видаляє дистрибутиви, не змінює стандартний WSL-дистрибутив і не перебудовує існуюче crypto-оточення. Не використовуйте для цього `docker-desktop`.
+Очікується `1.1.16-ctf.9` або новіша, `ready: true`, `lockMatches: true`. Установка не перезавантажує Windows сама, не видаляє дистрибутиви, не змінює стандартний WSL-дистрибутив і не перебудовує існуюче crypto-оточення. Не використовуйте для цього `docker-desktop`.
 
 Перевірка WSL2:
 

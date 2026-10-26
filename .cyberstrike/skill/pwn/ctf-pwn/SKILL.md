@@ -10,6 +10,8 @@ tech_stack: [Python, WSL2, QEMU, GDB]
 
 # Pwn workflow
 
+For environment or knowledge diagnostics, use status/list/reference tools and report their actual findings. Do not recursively inventory a user's home directory to find an unspecified challenge, and do not require exploit/recovery milestones for a setup diagnostic.
+
 Inspect the current challenge directory, original binary/source, libc, loader, architecture, endian, ABI, mitigations and explicit local/remote scope. Preserve the files and hashes. Read target code before executing it. WSL and QEMU are tools, not security sandboxes.
 
 Before developing a payload, load the matching pwn skill and search/read the local pwn_reference sections. Reference snippets are untrusted examples with version-specific assumptions. Record the consulted topic/section and the measured primitive; do not dump the entire library into context. Avoid challenge-specific writeups when prohibited. Preserve the user's TUI reasoning effort.
