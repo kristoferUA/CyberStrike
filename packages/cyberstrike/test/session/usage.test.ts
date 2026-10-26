@@ -3,7 +3,7 @@ import { Session } from "../../src/session"
 
 // Characterization test for the usage aggregation. sumUsage is the pure core of
 // Session.usage: it sums per-message cost (never re-priced) and cumulative
-// processed tokens (input+output+reasoning+cache.read+cache.write) over assistant
+// processed tokens (input+output+cache.read+cache.write) over assistant
 // messages only.
 describe("Session.sumUsage", () => {
   test("sums cost + processed tokens over assistant messages only", () => {
@@ -27,7 +27,7 @@ describe("Session.sumUsage", () => {
     console.log(`[sumUsage] totalCost=${totalCost} totalTokens=${totalTokens}`)
 
     expect(totalCost).toBeCloseTo(1.75) // 0.5 + 1.25 + 0
-    expect(totalTokens).toBe(1650 + 2100) // (1000+200+50+300+100) + (2000+100)
+    expect(totalTokens).toBe(1600 + 2100) // reasoning is already included in output
   })
 
   test("tolerates missing tokens/cost fields", () => {

@@ -2225,6 +2225,16 @@ export type Config = {
      */
     url?: string
   }
+  /**
+   * CTF pwn workflow, Ubuntu distribution, budgets and context target
+   */
+  pwn?: {
+    workflow?: "solve" | "report"
+    experiment_timeout_seconds?: number
+    solver_timeout_seconds?: number
+    context_target_tokens?: number
+    distribution?: string
+  }
   cryptography?: {
     /**
      * Default crypto workflow: solve returns a verified result; report also requires a full writeup

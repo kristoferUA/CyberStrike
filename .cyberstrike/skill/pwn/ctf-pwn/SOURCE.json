@@ -1,0 +1,117 @@
+{
+  "repository": "https://github.com/ljagiello/ctf-skills",
+  "commit": "1fdf188cb7ac84a0a2697851aecab156f283e56b",
+  "license": "MIT",
+  "files": [
+    {
+      "upstream": "ctf-pwn/advanced-exploits-2.md",
+      "local": "references/advanced-exploits-2.md",
+      "sha256": "519ab81fe6ba6203b7f1ad5fa6ed34cc82f1060cf6775933ce1eb39d765bea25"
+    },
+    {
+      "upstream": "ctf-pwn/advanced-exploits-3.md",
+      "local": "references/advanced-exploits-3.md",
+      "sha256": "534a95bd40a5a07bba8320c25080bc236956396104f3deee46eaf5378beddb8f"
+    },
+    {
+      "upstream": "ctf-pwn/advanced-exploits-4.md",
+      "local": "references/advanced-exploits-4.md",
+      "sha256": "3b0c77247da9e7aeb1566f9dc5ef892cb180934ab4e60d7e5a4255e92d09f6b5"
+    },
+    {
+      "upstream": "ctf-pwn/advanced-exploits-5.md",
+      "local": "references/advanced-exploits-5.md",
+      "sha256": "fe5b9e44cb22a99963b43a575527ba05e643ff64a6e0e424358d24ca6a376f98"
+    },
+    {
+      "upstream": "ctf-pwn/advanced-exploits.md",
+      "local": "references/advanced-exploits.md",
+      "sha256": "4e2733869d6651932fe96248b2d1240be79f919458c5e9b0b24c3600ed4c19be"
+    },
+    {
+      "upstream": "ctf-pwn/advanced.md",
+      "local": "references/advanced.md",
+      "sha256": "5e9bf0274def31a7288d0d2aaa0e1ffa66fb0d03dc53a124a96b60dcbb030328"
+    },
+    {
+      "upstream": "ctf-pwn/attack-playbook.md",
+      "local": "references/attack-playbook.md",
+      "sha256": "bf1ba5367f8537649befcc8225b2d183409adefcbe36eb6067709eb869b8e643"
+    },
+    {
+      "upstream": "ctf-pwn/field-notes.md",
+      "local": "references/field-notes.md",
+      "sha256": "7b0cda57fc8bbd242da7de1612ee71714b76f175ca361365fc3ebf13a7208406"
+    },
+    {
+      "upstream": "ctf-pwn/format-string.md",
+      "local": "references/format-string.md",
+      "sha256": "4dbc9ff05fa1bcdff82510be4dc1cfa4e85f9678e2573ed6f9aaf4ffa5ad2ac2"
+    },
+    {
+      "upstream": "ctf-pwn/heap-fsop.md",
+      "local": "references/heap-fsop.md",
+      "sha256": "a8ee87cb638a4fdab8c73c870ab70e6c141b5a8c047302c0503a8e844e565e96"
+    },
+    {
+      "upstream": "ctf-pwn/heap-techniques-2.md",
+      "local": "references/heap-techniques-2.md",
+      "sha256": "85a2c63701ae27c5e2c46d70d1476d2391edc0e7fa62a5aa1be294531a866b1f"
+    },
+    {
+      "upstream": "ctf-pwn/heap-techniques.md",
+      "local": "references/heap-techniques.md",
+      "sha256": "8205defca6f77292f85c3b0aefb8beaf784b861773590c5710d235e4d19470a7"
+    },
+    {
+      "upstream": "ctf-pwn/kernel-bypass.md",
+      "local": "references/kernel-bypass.md",
+      "sha256": "a06744351787ba70456445b931cd1e63f1526f811285c3492f5c04c1adb71884"
+    },
+    {
+      "upstream": "ctf-pwn/kernel-techniques.md",
+      "local": "references/kernel-techniques.md",
+      "sha256": "bed9e9a2ffe3d04dc32062ce7ea556e6f21c2434bb594d2f3f2f4c920d78d0f0"
+    },
+    {
+      "upstream": "ctf-pwn/kernel.md",
+      "local": "references/kernel.md",
+      "sha256": "a10131fc9828c1b5f6b74e6dcd19980486efae77fb9408555ec02bb8a0c2126c"
+    },
+    {
+      "upstream": "ctf-pwn/overflow-basics.md",
+      "local": "references/overflow-basics.md",
+      "sha256": "43ca77cb31ba787b428d821e923d48d151bc160e3aeddbc76c090978265920f7"
+    },
+    {
+      "upstream": "ctf-pwn/rop-advanced.md",
+      "local": "references/rop-advanced.md",
+      "sha256": "3d443788ac35dbcc9769ca0ae9ac9b7e3d9ece7024f0c5e18d64140b42ca8d60"
+    },
+    {
+      "upstream": "ctf-pwn/rop-and-shellcode.md",
+      "local": "references/rop-and-shellcode.md",
+      "sha256": "61a2454a91764d97b64d58f27c7b8212b8ac008c8a7e01df1b5cabc6b106c869"
+    },
+    {
+      "upstream": "ctf-pwn/sandbox-escape.md",
+      "local": "references/sandbox-escape.md",
+      "sha256": "ac0f98f63ef9c9f736f219a59f28a54ace9d605c73bde43f6750cda0c7f6dcfd"
+    },
+    {
+      "upstream": "ctf-pwn/SKILL.md",
+      "local": "references/upstream-index.md",
+      "sha256": "b869c797f60905eca912006bde57c29f091cd1c2738ef2bb58f2f4d46a234b89"
+    },
+    {
+      "upstream": "ctf-pwn/static-signals.md",
+      "local": "references/static-signals.md",
+      "sha256": "3d70c0953f39baa6a4dbb245b1f940a37b3e9053ec2befe2f4de302545191745"
+    },
+    {
+      "upstream": "ctf-pwn/tools-mcp.md",
+      "local": "references/tools-mcp.md",
+      "sha256": "c9285f623464a2064739dff4d0f8bf2ae91906ef5caada6ddf1470d09614049d"
+    }
+  ]
+}

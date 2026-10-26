@@ -1,5 +1,5 @@
 import { useSync } from "@tui/context/sync"
-import { createEffect, createMemo, For, onCleanup, Show, Switch, Match } from "solid-js"
+import { createEffect, createMemo, createSignal, For, onCleanup, Show, Switch, Match } from "solid-js"
 import { createStore } from "solid-js/store"
 import { useTheme } from "../../context/theme"
 import { Locale } from "@/util/locale"
@@ -12,8 +12,10 @@ import { useDirectory } from "../../context/directory"
 import { useKV } from "../../context/kv"
 import { TodoItem } from "../../component/todo-item"
 import { formatEndpointHost } from "@tui/util/format"
+import { PWN_PHASES } from "@/pwn/catalog"
 import { CRYPTO_PHASES } from "@/cryptography/catalog"
 import { CryptoProgress } from "@/cryptography/schema"
+import { reportedTokens } from "@/util/token-usage"
 
 const fmtTokens = (n: number) =>
   n >= 1_000_000 ? (n / 1_000_000).toFixed(2) + "M" : n >= 1_000 ? Math.round(n / 1_000) + "K" : String(n)
@@ -62,30 +64,59 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   const functions = createMemo(() => sync.data.web_function[props.sessionID] ?? [])
   const retests = createMemo(() => sync.data.web_retest[props.sessionID] ?? [])
   const messages = createMemo(() => sync.data.message[props.sessionID] ?? [])
+  const activeTools = createMemo(() =>
+    messages().flatMap((message) =>
+      (sync.data.part[message.id] ?? []).flatMap((part) =>
+        part.type === "tool" && (part.state.status === "running" || part.state.status === "pending")
+          ? [
+              {
+                id: part.id,
+                name: part.tool,
+                started: part.state.status === "running" ? part.state.time.start : message.time.created,
+              },
+            ]
+          : [],
+      ),
+    ),
+  )
+  const working = createMemo(
+    () => activeTools().length > 0 || sync.data.session_status[props.sessionID]?.type === "busy",
+  )
+  const [now, setNow] = createSignal(Date.now())
+  createEffect(() => {
+    if (!working()) return
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+    onCleanup(() => clearInterval(timer))
+  })
+  const pwnMode = createMemo(() => messages().findLast((message) => message.role === "user")?.agent === "pwn")
   const cryptoMode = createMemo(
-    () => messages().findLast((message) => message.role === "user")?.agent === "cryptography",
+    () => messages().findLast((message) => message.role === "user")?.agent === "cryptography" || pwnMode(),
   )
   const cryptoProgress = createMemo(() => {
     if (!cryptoMode()) return undefined
     for (const message of messages().toReversed()) {
       const part = (sync.data.part[message.id] ?? []).findLast(
-        (part) => part.type === "tool" && part.tool === "crypto_methodology" && part.state.status === "completed",
+        (part) =>
+          part.type === "tool" &&
+          part.tool === (pwnMode() ? "pwn_methodology" : "crypto_methodology") &&
+          part.state.status === "completed",
       )
       if (part?.type !== "tool" || part.state.status !== "completed") continue
-      const parsed = CryptoProgress.safeParse(part.state.metadata.cryptography)
+      const parsed = CryptoProgress.safeParse(part.state.metadata[pwnMode() ? "pwn" : "cryptography"])
       if (parsed.success) return parsed.data
     }
-    const workflow = sync.data.config.cryptography?.workflow ?? "solve"
+    const workflow = (pwnMode() ? sync.data.config.pwn : sync.data.config.cryptography)?.workflow ?? "solve"
     return {
       workflow,
       ready: false,
-      phases: CRYPTO_PHASES.map((phase) => ({
+      phases: (pwnMode() ? PWN_PHASES : CRYPTO_PHASES).map((phase) => ({
         ...phase,
         status: "not_started" as const,
         required: workflow === "report" || ["recovery", "verification"].includes(phase.id),
       })),
       completed: 0,
-      total: workflow === "report" ? CRYPTO_PHASES.length : 2,
+      total: workflow === "report" ? (pwnMode() ? PWN_PHASES : CRYPTO_PHASES).length : 2,
       percent: 0,
     }
   })
@@ -107,7 +138,12 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   let usageTimer: ReturnType<typeof setTimeout> | undefined
   createEffect(() => {
     const sid = props.sessionID
-    messages().length // track new activity
+    // Completed-step usage changes after the initial message was inserted.
+    for (const message of messages()) {
+      if (message.role !== "assistant") continue
+      reportedTokens(message.tokens)
+      message.cost
+    }
     clearTimeout(usageTimer)
     usageTimer = setTimeout(() => sid && void sync.refreshUsage(sid), 1200)
   })
@@ -169,10 +205,11 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
   })
 
   const context = createMemo(() => {
-    const last = messages().findLast((x) => x.role === "assistant" && x.tokens.output > 0) as AssistantMessage
+    const last = messages().findLast((x) => x.role === "assistant" && reportedTokens(x.tokens) !== undefined) as
+      | AssistantMessage
+      | undefined
     if (!last) return
-    const total =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    const total = reportedTokens(last.tokens)!
     const model = sync.data.provider.find((x) => x.id === last.providerID)?.models[last.modelID]
     return {
       tokens: total.toLocaleString(),
@@ -214,16 +251,43 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
               <text fg={theme.text}>
                 <b>Context</b>
               </text>
-              <text fg={theme.textMuted}>{context()?.tokens ?? 0} tokens</text>
-              <text fg={theme.textMuted}>{context()?.percentage ?? 0}% used</text>
-              <text fg={theme.textMuted}>{cost()} spent</text>
+              <Show
+                when={context()}
+                fallback={<text fg={theme.textMuted}>{working() ? "Usage pending" : "Usage not reported"}</text>}
+              >
+                <text fg={theme.textMuted}>{context()!.tokens} tokens</text>
+                <text fg={theme.textMuted}>
+                  {context()!.percentage === null ? "Context limit unknown" : `${context()!.percentage}% used`}
+                </text>
+              </Show>
+              <text fg={theme.textMuted}>
+                {context() || (hackbrowserStatus()?.cost ?? 0) > 0 ? `${cost()} reported` : "Cost not reported"}
+              </text>
               {/* cumulative across the whole session tree (main + subagents) */}
               <Show when={treeUsage()}>
                 <text fg={theme.textMuted}>
-                  Σ {fmtTokens(treeUsage()!.totalTokens)} · {usd(treeUsage()!.totalCost)} tree total
+                  {treeUsage()!.totalTokens > 0
+                    ? `Σ ${fmtTokens(treeUsage()!.totalTokens)} · ${usd(treeUsage()!.totalCost)} tree total`
+                    : "Σ usage not reported"}
                 </text>
               </Show>
             </box>
+            <Show when={working()}>
+              <box>
+                <text fg={theme.text}>
+                  <b>Activity</b>
+                </text>
+                <Show when={activeTools().length > 0} fallback={<text fg={theme.info}>Waiting for model output</text>}>
+                  <For each={activeTools().slice(-5)}>
+                    {(tool) => (
+                      <text fg={theme.info}>
+                        {tool.name} · {Math.max(0, Math.floor((now() - tool.started) / 1000))}s
+                      </text>
+                    )}
+                  </For>
+                </Show>
+              </box>
+            </Show>
             <Show when={(queueStatus()?.pending ?? 0) > 0 || queueStatus()?.paused}>
               <box>
                 <text fg={theme.text}>
@@ -305,7 +369,7 @@ export function Sidebar(props: { sessionID: string; overlay?: boolean }) {
             <Show when={cryptoProgress()}>
               <box>
                 <text fg={theme.text}>
-                  <b>Cryptography</b>
+                  <b>{pwnMode() ? "Pwn" : "Cryptography"}</b>
                 </text>
                 <text fg={theme.textMuted}>
                   {cryptoProgress()!.workflow ?? "report"}: {cryptoProgress()!.completed}/{cryptoProgress()!.total}{" "}

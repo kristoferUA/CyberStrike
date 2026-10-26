@@ -141,7 +141,7 @@ export namespace Ripgrep {
       const filename = `ripgrep-${version}-${config.platform}.${config.extension}`
       const url = `https://github.com/BurntSushi/ripgrep/releases/download/${version}/${filename}`
 
-      const response = await fetch(url)
+      const response = await fetch(url, { signal: AbortSignal.timeout(30000) })
       if (!response.ok) throw new DownloadFailedError({ url, status: response.status })
 
       const buffer = await response.arrayBuffer()
@@ -245,13 +245,31 @@ export namespace Ripgrep {
       signal: input.signal,
     })
 
+    yield* lines(proc, input.signal)
+  }
+
+  // A consumer can stop after its result limit. Reap our child instead of
+  // waiting for a producer whose stdout is no longer being drained.
+  export async function* lines(
+    proc: { stdout: ReadableStream<Uint8Array>; exited: Promise<number>; kill(): void },
+    signal?: AbortSignal,
+  ) {
     const reader = proc.stdout.getReader()
+    const abort = () => {
+      try {
+        proc.kill()
+      } catch {
+        // The child may already have exited between EOF and cleanup.
+      }
+    }
+    signal?.addEventListener("abort", abort, { once: true })
+    if (signal?.aborted) abort()
     const decoder = new TextDecoder()
     let buffer = ""
 
     try {
       while (true) {
-        input.signal?.throwIfAborted()
+        signal?.throwIfAborted()
 
         const { done, value } = await reader.read()
         if (done) break
@@ -268,11 +286,14 @@ export namespace Ripgrep {
 
       if (buffer) yield buffer
     } finally {
+      signal?.removeEventListener("abort", abort)
+      abort()
+      await reader.cancel().catch(() => {})
       reader.releaseLock()
       await proc.exited
     }
 
-    input.signal?.throwIfAborted()
+    signal?.throwIfAborted()
   }
 
   export async function tree(input: { cwd: string; limit?: number; signal?: AbortSignal }) {

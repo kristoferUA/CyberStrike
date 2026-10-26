@@ -6,6 +6,8 @@ import {
   CryptoReferenceTool,
   CryptoMethodologyTool,
 } from "./cryptography"
+import { PwnEnvironmentTool, PwnRunTool, PwnDebugTool } from "./pwn"
+import { PwnReferenceTool, PwnMethodologyTool } from "./pwn-reference"
 import { BashTool } from "./bash"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
@@ -204,6 +206,11 @@ export namespace ToolRegistry {
       GetCoverageNotesTool,
       ScopeCheckTool,
       EnsureToolsTool,
+      PwnEnvironmentTool,
+      PwnRunTool,
+      PwnDebugTool,
+      PwnReferenceTool,
+      PwnMethodologyTool,
       CryptoEnvironmentTool,
       CryptoRunTool,
       CryptoSageTool,

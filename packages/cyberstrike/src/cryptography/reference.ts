@@ -1,4 +1,10 @@
 const aliases: Record<string, string[]> = {
+  stack: ["stack", "overflow", "ret2win"],
+  rop: ["rop", "ret2libc", "ret2csu", "srop"],
+  heap: ["heap", "tcache", "allocator", "use-after-free"],
+  tcache: ["tcache", "safe-linking", "safe linking"],
+  fsop: ["fsop", "_io_file", "file structure"],
+  qemu: ["qemu", "gdb", "cross-arch"],
   integral: ["integral", "square", "higher-order"],
   square: ["square", "integral"],
   algebraic: ["algebraic", "anf"],

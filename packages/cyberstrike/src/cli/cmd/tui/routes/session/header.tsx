@@ -8,6 +8,7 @@ import type { AssistantMessage, Session } from "@cyberstrike-io/sdk/v2"
 import { useCommandDialog } from "@tui/component/dialog-command"
 import { useKeybind } from "../../context/keybind"
 import { useTerminalDimensions } from "@opentui/solid"
+import { reportedTokens } from "@/util/token-usage"
 
 const Title = (props: { session: Accessor<Session> }) => {
   const { theme } = useTheme()
@@ -62,10 +63,11 @@ export function Header() {
   })
 
   const context = createMemo(() => {
-    const last = messages().findLast((x) => x.role === "assistant" && x.tokens.output > 0) as AssistantMessage
+    const last = messages().findLast((x) => x.role === "assistant" && reportedTokens(x.tokens) !== undefined) as
+      | AssistantMessage
+      | undefined
     if (!last) return
-    const total =
-      last.tokens.input + last.tokens.output + last.tokens.reasoning + last.tokens.cache.read + last.tokens.cache.write
+    const total = reportedTokens(last.tokens)!
     const model = sync.data.provider.find((x) => x.id === last.providerID)?.models[last.modelID]
     let result = total.toLocaleString()
     if (model?.limit.context) {
@@ -82,7 +84,11 @@ export function Header() {
   let usageTimer: ReturnType<typeof setTimeout> | undefined
   createEffect(() => {
     const sessionID = route.sessionID
-    messages().length // track new activity
+    for (const message of messages()) {
+      if (message.role !== "assistant") continue
+      reportedTokens(message.tokens)
+      message.cost
+    }
     clearTimeout(usageTimer)
     usageTimer = setTimeout(() => sessionID && void sync.refreshUsage(sessionID), 1500)
   })

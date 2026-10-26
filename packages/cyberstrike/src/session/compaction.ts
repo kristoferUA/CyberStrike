@@ -14,6 +14,7 @@ import { Agent } from "@/agent/agent"
 import { Plugin } from "@/plugin"
 import { Config } from "@/config/config"
 import { ProviderTransform } from "@/provider/transform"
+import { PwnSettings } from "../pwn/schema"
 import { CryptoSettings } from "../cryptography/schema"
 
 export namespace SessionCompaction {
@@ -50,9 +51,11 @@ export namespace SessionCompaction {
       ? input.model.limit.input - reserved
       : context - ProviderTransform.maxOutputTokens(input.model)
     const target =
-      input.agent === "cryptography"
-        ? Math.min(usable, CryptoSettings.parse(config.cryptography ?? {}).context_target_tokens)
-        : usable
+      input.agent === "pwn"
+        ? Math.min(usable, PwnSettings.parse(config.pwn ?? {}).context_target_tokens)
+        : input.agent === "cryptography"
+          ? Math.min(usable, CryptoSettings.parse(config.cryptography ?? {}).context_target_tokens)
+          : usable
     return count >= target
   }
 
@@ -196,6 +199,11 @@ Rules:
       [
         defaultPrompt,
         ...compacting.context,
+        ...(userMessage.agent === "pwn"
+          ? [
+              "Preserve exact ELF/libc/loader/sysroot versions, mitigations, measured offsets/leaks/primitive, payload and debugger script paths, fresh-process verification, failed bounds and scope/query budget. Preserve the selected effort; do not restart unchanged experiments.",
+            ]
+          : []),
         ...(userMessage.agent === "cryptography"
           ? [
               "Preserve the exact crypto model/equations, knowns/unknowns, strongest measured invariants, candidate and verification status, script paths and latest outputs, query/work budgets, and failed experiments with their stopping reasons. A timeout is not an unsatisfiability proof. Preserve the user's selected effort and solve/report preference. Do not restart abandoned approaches without new evidence. Keep large tables and ciphertext in their existing local files; cite their paths.",

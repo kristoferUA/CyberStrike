@@ -49,6 +49,7 @@ import { Shell } from "@/shell/shell"
 import { Truncate } from "@/tool/truncation"
 import { Token } from "@/util/token"
 import { MethodologyContext } from "@/methodology/context"
+import { PwnMethodology } from "../pwn/methodology"
 import { CryptoMethodology } from "../cryptography/methodology"
 import { AgentPerformance } from "@/methodology/performance"
 import { testerClass } from "@/tool/vuln-scope"
@@ -778,16 +779,16 @@ export namespace SessionPrompt {
       // running agent's lane when it's a proxy-tester (Phase 2.3) — orchestrator
       // (non-tester) gets the full routing view.
       const placeholder = Agent.isPlaceholder(agent)
-      const cryptography = agent.name === "cryptography"
+      const specialist = ["cryptography", "pwn"].includes(agent.name)
       const methodologyCtx =
-        placeholder || cryptography
+        placeholder || specialist
           ? undefined
           : MethodologyContext.generate(Session.root(sessionID), testerClass(lastUser.agent))
       if (methodologyCtx) system.push(methodologyCtx)
 
       // Inject MCP tool availability info so the LLM knows to use tool_search
       const mcpLazyStats = LazyToolRegistry.stats()
-      if (!placeholder && !cryptography && mcpLazyStats.available > 0) {
+      if (!placeholder && !specialist && mcpLazyStats.available > 0) {
         const allLazy = LazyToolRegistry.getAll()
         const byServer = new Map<string, string[]>()
         for (const t of allLazy) {
@@ -818,7 +819,7 @@ export namespace SessionPrompt {
 
       // Inject disabled MCP server awareness so the agent can remind the
       // user to enable them when relevant capabilities are needed.
-      const mcpStatus = placeholder || cryptography ? {} : await MCP.status()
+      const mcpStatus = placeholder || specialist ? {} : await MCP.status()
       const disabledServers = Object.entries(mcpStatus)
         .filter(([, s]) => s.status === "disabled")
         .map(([name]) => name)
@@ -835,7 +836,7 @@ export namespace SessionPrompt {
       // Inject skill awareness so the agent knows to use the skill tool
       const allSkills = placeholder
         ? []
-        : (await Skill.all()).filter((skill) => !cryptography || skill.category === "cryptography")
+        : (await Skill.all()).filter((skill) => !specialist || skill.category === agent.name)
       if (allSkills.length > 0) {
         const byCategory = new Map<string, number>()
         for (const s of allSkills) {
@@ -857,9 +858,9 @@ export namespace SessionPrompt {
           for (const name of agent.skills) lines.push(`- ${name}`)
         }
         const loaded = SkillContext.active().filter(
-          (name) => !cryptography || allSkills.some((skill) => skill.name === name),
+          (name) => !specialist || allSkills.some((skill) => skill.name === name),
         )
-        if (!cryptography && loaded.length > 0) {
+        if (!specialist && loaded.length > 0) {
           lines.push("", `Currently loaded: ${loaded.join(", ")} (${SkillContext.tokenCount()} tokens)`)
         }
         system.push(lines.join("\n"))
@@ -874,8 +875,13 @@ export namespace SessionPrompt {
       )
       // Put changing application state after replayable history so it does not
       // invalidate the stable system/history prefix on each milestone update.
-      const cryptoContext = cryptography ? await CryptoMethodology.context(Session.root(sessionID)) : ""
-      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join("") + cryptoContext)
+      const profileContext =
+        agent.name === "pwn"
+          ? await PwnMethodology.context(Session.root(sessionID))
+          : specialist
+            ? await CryptoMethodology.context(Session.root(sessionID))
+            : ""
+      const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join("") + profileContext)
       const preflightLimit = model.limit.input
         ? model.limit.input
         : model.limit.context - ProviderTransform.maxOutputTokens(model)
@@ -902,12 +908,12 @@ export namespace SessionPrompt {
         system,
         messages: [
           ...modelMessages,
-          ...(cryptography
+          ...(specialist
             ? [
                 {
                   role: "system" as const,
                   content:
-                    cryptoContext +
+                    profileContext +
                     (step % 8 === 0
                       ? `\nExecution checkpoint: ${step} model steps in this run. Prioritize the strongest measured invariant and one discriminating experiment; return an already verified result without further bookkeeping.`
                       : ""),
@@ -1173,9 +1179,9 @@ export namespace SessionPrompt {
       })
     }
 
-    // The crypto profile uses its dedicated local/SageCell tools rather than
+    // Local CTF profiles use their dedicated toolchains rather than
     // initializing unrelated penetration-testing MCP servers.
-    if (input.agent.name === "cryptography") return tools
+    if (["cryptography", "pwn"].includes(input.agent.name)) return tools
 
     // Initialize lazy tool registry for MCP tools
     await ToolRegistry.initLazyRegistry()

@@ -108,3 +108,7 @@ Share the error and startup stages after removing credentials and challenge secr
 ## Upstream and license
 
 Based on [CyberStrikeus/CyberStrike](https://github.com/CyberStrikeus/CyberStrike), commit `ec4fe5c4252668f2acea7665e7c7c1edcd892c65`. The original copyright notices and [AGPL-3.0 license](../LICENSE) are retained.
+
+## Pwn and category knowledge for Codex (CTF.8)
+
+The pwn profile adds eight skills, 22 pinned general reference files, evidence milestones, managed pwntools and WSL2/Ubuntu QEMU/GDB tooling. `script/setup-pwn-windows.ps1` covers a fresh Windows machine. Codex reads the matching local category first through `cyberstrike knowledge` and can run `cyberstrike pwn debug/run/inspect` without a separate model request. [Setup and usage (Ukrainian)](pwn.uk.md).
