@@ -386,6 +386,8 @@ cyberstrike --port 4097 -m openai/gpt-6-luna
 
 ## 11. Скіл Codex та додаткові інструменти
 
+Для Claude Code є окремий [скіл CyberStrike з інструкцією встановлення](claude-skill.uk.md): локальні методички за категоріями, crypto-оточення та WSL QEMU/GDB. Він використовує ті самі інструменти без запуску додаткової моделі заради CLI-команд.
+
 ### Скіл
 
 У репозиторії є [`codex-skills/cyberstrike/SKILL.md`](../codex-skills/cyberstrike/SKILL.md). Скопіюйте папку `cyberstrike` до каталогу скілів вашого Codex, зазвичай `%USERPROFILE%\.codex\skills`. Якщо папка вже є, спершу порівняйте вміст і збережіть власні зміни. Після встановлення відкрийте новий чат Codex і викличте `$cyberstrike`.
