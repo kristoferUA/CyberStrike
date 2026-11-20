@@ -779,7 +779,7 @@ export namespace SessionPrompt {
       // running agent's lane when it's a proxy-tester (Phase 2.3) — orchestrator
       // (non-tester) gets the full routing view.
       const placeholder = Agent.isPlaceholder(agent)
-      const specialist = ["cryptography", "pwn"].includes(agent.name)
+      const specialist = Agent.isLocalCtf(agent.name)
       const methodologyCtx =
         placeholder || specialist
           ? undefined
@@ -836,7 +836,9 @@ export namespace SessionPrompt {
       // Inject skill awareness so the agent knows to use the skill tool
       const allSkills = placeholder
         ? []
-        : (await Skill.all()).filter((skill) => !specialist || skill.category === agent.name)
+        : (await Skill.all()).filter(
+            (skill) => !specialist || skill.category === agent.name || agent.skills?.includes(skill.name),
+          )
       if (allSkills.length > 0) {
         const byCategory = new Map<string, number>()
         for (const s of allSkills) {
@@ -878,9 +880,15 @@ export namespace SessionPrompt {
       const profileContext =
         agent.name === "pwn"
           ? await PwnMethodology.context(Session.root(sessionID))
-          : specialist
+          : agent.name === "cryptography"
             ? await CryptoMethodology.context(Session.root(sessionID))
             : ""
+      const checkpoint =
+        specialist && step % 8 === 0
+          ? agent.name === "stego"
+            ? "\nExecution checkpoint: prioritize the strongest observed clue and one format-appropriate check. Return an already verified result."
+            : `\nExecution checkpoint: ${step} model steps in this run. Prioritize the strongest measured invariant and one discriminating experiment; return an already verified result without further bookkeeping.`
+          : ""
       const preflightEstimate = Token.estimate(JSON.stringify(modelMessages) + system.join("") + profileContext)
       const preflightLimit = model.limit.input
         ? model.limit.input
@@ -908,15 +916,11 @@ export namespace SessionPrompt {
         system,
         messages: [
           ...modelMessages,
-          ...(specialist
+          ...(profileContext || checkpoint
             ? [
                 {
                   role: "system" as const,
-                  content:
-                    profileContext +
-                    (step % 8 === 0
-                      ? `\nExecution checkpoint: ${step} model steps in this run. Prioritize the strongest measured invariant and one discriminating experiment; return an already verified result without further bookkeeping.`
-                      : ""),
+                  content: profileContext + checkpoint,
                 },
               ]
             : []),
@@ -1181,7 +1185,7 @@ export namespace SessionPrompt {
 
     // Local CTF profiles use their dedicated toolchains rather than
     // initializing unrelated penetration-testing MCP servers.
-    if (["cryptography", "pwn"].includes(input.agent.name)) return tools
+    if (Agent.isLocalCtf(input.agent.name)) return tools
 
     // Initialize lazy tool registry for MCP tools
     await ToolRegistry.initLazyRegistry()

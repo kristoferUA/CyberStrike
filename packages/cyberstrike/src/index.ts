@@ -32,6 +32,7 @@ import { SkillCommand } from "./cli/cmd/skill"
 import { ClaudeCommand } from "./cli/cmd/claude"
 import { PwnCommand } from "./cli/cmd/pwn"
 import { KnowledgeCommand } from "./cli/cmd/knowledge"
+import { StegoCommand } from "./cli/cmd/stego"
 import { CryptoCommand } from "./cli/cmd/crypto"
 import { ClaudeToolsCommand } from "./cli/cmd/claude-tools"
 import path from "path"
@@ -73,6 +74,7 @@ const cli = yargs(hideBin(process.argv))
     const [command, action] = opts._
     const stateless =
       command === "knowledge" ||
+      command === "stego" ||
       (command === "crypto" && ["status", "probe", "math"].includes(String(action))) ||
       (command === "pwn" && action === "status" && (process.platform !== "win32" || opts.distribution !== undefined)) ||
       (command === "claude" && opts.status === true)
@@ -166,6 +168,7 @@ const cli = yargs(hideBin(process.argv))
   .command(CryptoCommand)
   .command(PwnCommand)
   .command(KnowledgeCommand)
+  .command(StegoCommand)
   .command(ClaudeToolsCommand)
   .fail((msg, err) => {
     if (

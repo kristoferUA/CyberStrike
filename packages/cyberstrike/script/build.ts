@@ -262,6 +262,13 @@ for (const key of Object.keys(binaries)) {
     path.join(outdir, "hackbrowser-worker/hackbrowser-worker.js"),
     path.join(outdir, key, "bin/hackbrowser-worker.js"),
   )
+  await fs.promises.cp(
+    path.resolve(dir, "../../.cyberstrike/skill/stego"),
+    path.join(outdir, key, "bin/skills/stego"),
+    {
+      recursive: true,
+    },
+  )
   await fs.promises.cp(path.resolve(dir, "../../tools/pwn"), path.join(outdir, key, "bin/pwn"), { recursive: true })
   await fs.promises.cp(path.resolve(dir, "../../.cyberstrike/skill/pwn"), path.join(outdir, key, "bin/skills/pwn"), {
     recursive: true,

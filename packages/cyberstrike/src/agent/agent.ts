@@ -5,6 +5,8 @@ import { generateObject, streamObject, type ModelMessage } from "ai"
 import { SystemPrompt } from "../session/system"
 import PROMPT_CRYPTOGRAPHY from "./prompt/cryptography.txt"
 import PROMPT_PWN from "./prompt/pwn.txt"
+import PROMPT_STEGO from "./prompt/stego.txt"
+import { STEGO_SKILLS } from "../stego/catalog"
 import { PWN_SKILLS } from "../pwn/catalog"
 import { CRYPTO_SKILLS } from "../cryptography/catalog"
 import { Instance } from "../project/instance"
@@ -122,6 +124,10 @@ async function loadVulnAgent(
 }
 
 export namespace Agent {
+  export function isLocalCtf(name: string) {
+    return ["cryptography", "pwn", "stego"].includes(name)
+  }
+
   // Hard step-caps (Layer 1 backstop for the loop-termination fix — see
   // AGENT_LOOP_TERMINATION_SPEC.md). Single tuning point. NOTE: proxy-tester-* are
   // deliberately left at their existing default of 50 (see the `startsWith` guard
@@ -268,6 +274,33 @@ export namespace Agent {
             pwn_reference: "allow",
             pwn_methodology: "allow",
             pwn_install: "ask",
+            external_directory: { "*": "ask", [Truncate.GLOB]: "allow" },
+          }),
+          user,
+        ),
+        options: {},
+      },
+      stego: {
+        name: "stego",
+        description:
+          "CTF steganography specialist for local image and audio inspection, sample bits and WAV spectrograms.",
+        prompt: PROMPT_STEGO,
+        mode: "all",
+        native: true,
+        skills: STEGO_SKILLS,
+        permission: PermissionNext.merge(
+          defaults,
+          PermissionNext.fromConfig({
+            "*": "deny",
+            read: { "*": "allow", "*.env": "ask", "*.env.*": "ask", "*.env.example": "allow" },
+            glob: "allow",
+            question: "allow",
+            skill: { "*": "deny", "ctf-stego": "allow" },
+            stego_inspect: "allow",
+            stego_bytes: "allow",
+            stego_bits: "allow",
+            stego_spectrum: "allow",
+            stego_reference: "allow",
             external_directory: { "*": "ask", [Truncate.GLOB]: "allow" },
           }),
           user,
