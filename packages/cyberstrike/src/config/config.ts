@@ -31,7 +31,6 @@ import { GlobalBus } from "@/bus/global"
 import { Event } from "../server/event"
 import { PackageRegistry } from "@/bun/registry"
 import { proxied } from "@/util/proxied"
-import { iife } from "@/util/iife"
 import { Control } from "@/control"
 import plugin from "../../../plugin/package.json"
 
@@ -209,7 +208,13 @@ export namespace Config {
       log.debug("loading config from CYBERSTRIKE_CONFIG_DIR", { path: Flag.CYBERSTRIKE_CONFIG_DIR })
     }
 
-    const deps = []
+    const deps = lazy(() =>
+      Promise.all(
+        unique(directories).map(async (dir) => {
+          if (await needsInstall(dir)) await installDependencies(dir)
+        }),
+      ),
+    )
 
     for (const dir of unique(directories)) {
       if (dir.endsWith(".cyberstrike") || dir === Flag.CYBERSTRIKE_CONFIG_DIR) {
@@ -222,13 +227,6 @@ export namespace Config {
           result.plugin ??= []
         }
       }
-
-      deps.push(
-        iife(async () => {
-          const shouldInstall = await needsInstall(dir)
-          if (shouldInstall) await installDependencies(dir)
-        }),
-      )
 
       result.command = mergeDeep(result.command ?? {}, await loadCommand(dir))
       result.agent = mergeDeep(result.agent, await loadAgent(dir))
@@ -311,8 +309,8 @@ export namespace Config {
   })
 
   export async function waitForDependencies() {
-    const deps = await state().then((x) => x.deps)
-    await Promise.all(deps)
+    const { deps } = await state()
+    await deps()
   }
 
   export async function installDependencies(dir: string) {

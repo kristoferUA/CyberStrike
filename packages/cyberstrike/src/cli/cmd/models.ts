@@ -27,7 +27,14 @@ export const ModelsCommand = cmd({
   },
   handler: async (args) => {
     if (args.refresh) {
-      await ModelsDev.refresh()
+      try {
+        await ModelsDev.refresh()
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : String(error)
+        UI.error(`Could not refresh the model catalog: ${reason}`)
+        process.exitCode = 1
+        return
+      }
       UI.println(UI.Style.TEXT_SUCCESS_BOLD + "Models cache refreshed" + UI.Style.TEXT_NORMAL)
     }
 

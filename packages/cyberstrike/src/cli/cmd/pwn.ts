@@ -1,6 +1,7 @@
 import path from "node:path"
 import { cmd } from "./cmd"
 import { bootstrap } from "../bootstrap"
+import { Instance } from "../../project/instance"
 import { PwnRuntime } from "../../pwn/runtime"
 
 export const PwnCommand = cmd({
@@ -13,19 +14,16 @@ export const PwnCommand = cmd({
         cmd({
           command: "status",
           describe: "inspect pwn packages and QEMU/GDB availability",
-          handler: async (args) =>
-            bootstrap(process.cwd(), async () => {
-              console.log(
-                JSON.stringify(
-                  await PwnRuntime.status({
-                    cwd: process.cwd(),
-                    distribution: args.distribution as string | undefined,
-                  }),
-                  null,
-                  2,
-                ),
-              )
-            }),
+          handler: async (args) => {
+            const directory = process.cwd()
+            const distribution = args.distribution as string | undefined
+            const status = () => PwnRuntime.status({ cwd: directory, distribution })
+            const result =
+              process.platform === "win32" && distribution === undefined
+                ? await Instance.provide({ directory, fn: status })
+                : await status()
+            console.log(JSON.stringify(result, null, 2))
+          },
         }),
       )
       .command(

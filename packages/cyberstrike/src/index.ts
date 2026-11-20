@@ -38,6 +38,7 @@ import path from "path"
 import { Global } from "./global"
 import { JsonMigration } from "./storage/json-migration"
 import { Database } from "./storage/db"
+import { ModelsDev } from "./provider/models"
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
@@ -69,11 +70,19 @@ const cli = yargs(hideBin(process.argv))
     choices: ["DEBUG", "INFO", "WARN", "ERROR"],
   })
   .middleware(async (opts) => {
+    const [command, action] = opts._
+    const stateless =
+      command === "knowledge" ||
+      (command === "crypto" && ["status", "probe", "math"].includes(String(action))) ||
+      (command === "pwn" && action === "status" && (process.platform !== "win32" || opts.distribution !== undefined)) ||
+      (command === "claude" && opts.status === true)
     await Log.init({
       print: process.argv.includes("--print-logs"),
       dev: Installation.isLocal(),
+      stateless,
       level: (() => {
         if (opts.logLevel) return opts.logLevel as Log.Level
+        if (stateless && !opts.printLogs) return "ERROR"
         if (Installation.isLocal()) return "DEBUG"
         return "INFO"
       })(),
@@ -87,10 +96,11 @@ const cli = yargs(hideBin(process.argv))
       args: process.argv.slice(2),
     })
 
+    if (stateless) return
     const marker = path.join(Global.Path.data, "cyberstrike.db")
     if (!(await Bun.file(marker).exists())) {
-      // MCP stdio reserves stdout exclusively for protocol messages.
-      const output = opts._[0] === "claude-tools" ? process.stderr : process.stdout
+      // Keep protocol and machine-readable stdout free of migration notices.
+      const output = command === "claude-tools" || !process.stdout.isTTY ? process.stderr : process.stdout
       output.write("Performing one time database migration, may take a few minutes...\n")
       const tty = output.isTTY
       const width = 36
@@ -125,6 +135,7 @@ const cli = yargs(hideBin(process.argv))
       }
       output.write("Database migration complete.\n")
     }
+    if (command === "serve" || command === "web") ModelsDev.startRefresh()
   })
   .usage("\n" + UI.logo())
   .completion("completion", "generate shell completion script")

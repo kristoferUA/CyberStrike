@@ -44,6 +44,7 @@ export namespace Log {
     print: boolean
     dev?: boolean
     level?: Level
+    stateless?: boolean
   }
 
   let logpath = ""
@@ -69,7 +70,9 @@ export namespace Log {
   export async function init(options: Options) {
     await close()
     if (options.level) level = options.level
-    cleanup(Global.Path.log)
+    if (options.stateless) return
+    await Global.initialize()
+    void cleanup(Global.Path.log).catch(() => {})
     if (options.print) return
     logpath = path.join(
       Global.Path.log,

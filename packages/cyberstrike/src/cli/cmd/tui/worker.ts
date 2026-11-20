@@ -10,6 +10,7 @@ import { GlobalBus } from "@/bus/global"
 import { createCyberstrikeClient, type Event } from "@cyberstrike-io/sdk/v2"
 import type { BunWebSocketData } from "hono/bun"
 import { Flag } from "@/flag/flag"
+import { ModelsDev } from "@/provider/models"
 
 await Log.init({
   print: process.argv.includes("--print-logs"),
@@ -19,6 +20,8 @@ await Log.init({
     return "INFO"
   })(),
 })
+
+ModelsDev.startRefresh()
 
 process.on("unhandledRejection", (e) => {
   Log.Default.error("rejection", {
