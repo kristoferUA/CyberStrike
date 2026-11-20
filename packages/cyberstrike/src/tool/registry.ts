@@ -8,6 +8,7 @@ import {
 } from "./cryptography"
 import { PwnEnvironmentTool, PwnRunTool, PwnDebugTool } from "./pwn"
 import { PwnReferenceTool, PwnMethodologyTool } from "./pwn-reference"
+import { StegoBitsTool, StegoBytesTool, StegoInspectTool, StegoReferenceTool, StegoSpectrumTool } from "./stego"
 import { BashTool } from "./bash"
 import { EditTool } from "./edit"
 import { GlobTool } from "./glob"
@@ -211,6 +212,11 @@ export namespace ToolRegistry {
       PwnDebugTool,
       PwnReferenceTool,
       PwnMethodologyTool,
+      StegoInspectTool,
+      StegoBytesTool,
+      StegoBitsTool,
+      StegoSpectrumTool,
+      StegoReferenceTool,
       CryptoEnvironmentTool,
       CryptoRunTool,
       CryptoSageTool,

@@ -121,3 +121,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 ## Pwn та локальна база знань для Codex (CTF.8)
 
 Профіль `pwn` містить 8 скілів, 22 піновані матеріали й власну методику. На Windows потрібні WSL2/Ubuntu; `script/setup-pwn-windows.ps1` підготує чисту машину й окреме оточення з pwntools, QEMU та GDB-multiarch. Codex спочатку читає локальні матеріали відповідної категорії через `cyberstrike knowledge` і може сам запускати `cyberstrike pwn debug/run/inspect` без іншої моделі. [Повна інструкція](pwn.uk.md).
+
+## Стеганографія (CTF.11)
+
+Профіль `stego` і команди `cyberstrike stego` аналізують локальні PNG та PCM WAV. Чотири методички доступні через `cyberstrike knowledge list --category stego`. [Команди та підтримувані формати](stego.uk.md).
