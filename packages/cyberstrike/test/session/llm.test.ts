@@ -323,14 +323,17 @@ describe("session.llm.stream", () => {
     })
   })
 
-  test("sends responses API payload for OpenAI models", async () => {
+  test.each([
+    ["gpt-5.2", "high"],
+    ["gpt-6-luna", "max"],
+  ])("sends the Responses API payload for %s with %s reasoning", async (modelID, effort) => {
     const server = state.server
     if (!server) {
       throw new Error("Server not initialized")
     }
 
     const source = await loadFixture("openai", "gpt-5.2")
-    const model = source.model
+    const model = { ...source.model, id: modelID }
 
     const responseChunks = [
       {
@@ -411,7 +414,7 @@ describe("session.llm.stream", () => {
           time: { created: Date.now() },
           agent: agent.name,
           model: { providerID: "openai", modelID: resolved.id },
-          variant: "high",
+          variant: effort,
         } satisfies MessageV2.User
 
         const stream = await LLM.stream({
@@ -434,7 +437,7 @@ describe("session.llm.stream", () => {
         expect(capture.url.pathname.endsWith("/responses")).toBe(true)
         expect(body.model).toBe(resolved.api.id)
         expect(body.stream).toBe(true)
-        expect((body.reasoning as { effort?: string } | undefined)?.effort).toBe("high")
+        expect((body.reasoning as { effort?: string } | undefined)?.effort).toBe(effort)
 
         const maxTokens = body.max_output_tokens as number | undefined
         const expectedMaxTokens = ProviderTransform.maxOutputTokens(resolved)
