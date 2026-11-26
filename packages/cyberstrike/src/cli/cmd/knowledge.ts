@@ -4,6 +4,11 @@ import { CryptoRuntime } from "../../cryptography/runtime"
 import { PWN_REFERENCES } from "../../pwn/catalog"
 import { PwnRuntime } from "../../pwn/runtime"
 import { searchReferences } from "../../cryptography/reference"
+import { STEGO_REFERENCES, stegoReference } from "../../stego/catalog"
+
+const catalogs = { cryptography: CRYPTO_REFERENCES, pwn: PWN_REFERENCES, stego: STEGO_REFERENCES }
+const categories = ["cryptography", "pwn", "stego"] as const
+const resources = { cryptography: CryptoRuntime.reference, pwn: PwnRuntime.reference, stego: stegoReference }
 
 export const KnowledgeCommand = cmd({
   command: "knowledge <action> [value]",
@@ -12,21 +17,20 @@ export const KnowledgeCommand = cmd({
     yargs
       .positional("action", { type: "string", choices: ["list", "search", "read"], demandOption: true })
       .positional("value", { type: "string", describe: "search query or topic to read" })
-      .option("category", { type: "string", choices: ["cryptography", "pwn"], describe: "required for search/read" })
+      .option("category", { type: "string", choices: categories, describe: "required for search/read" })
       .option("topic", { type: "string", describe: "restrict search to one topic" })
       .option("start-line", { type: "number", default: 1 })
       .option("lines", { type: "number", default: 120 })
       .option("limit", { type: "number", default: 8 }),
   handler: async (args) => {
-    const category = args.category === "cryptography" || args.category === "pwn" ? args.category : undefined
-    const catalogs = { cryptography: CRYPTO_REFERENCES, pwn: PWN_REFERENCES }
+    const category = categories.find((name) => name === args.category)
     if (args.action === "list") {
       console.log(JSON.stringify(category ? { [category]: catalogs[category] } : catalogs, null, 2))
       return
     }
-    if (!category || !args.value) throw new Error("Choose --category cryptography|pwn and provide a query/topic.")
+    if (!category || !args.value) throw new Error("Choose --category cryptography|pwn|stego and provide a query/topic.")
     const topics = catalogs[category] as readonly string[]
-    const resource = category === "pwn" ? PwnRuntime.reference : CryptoRuntime.reference
+    const resource = resources[category]
     if (args.action === "read") {
       if (!topics.includes(args.value)) throw new Error("Unknown topic. Use knowledge list --category " + args.category)
       if (
