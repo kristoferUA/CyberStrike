@@ -1,6 +1,6 @@
 ---
 name: cyberstrike
-description: Uses CyberStrike's local category knowledge, cryptography runtime and WSL QEMU/GDB for scoped CTF challenges and authorized labs. Applies when solving CTF crypto or pwn tasks with CyberStrike, consulting its knowledge base, or setting up and diagnosing its tools. Also supports native Claude Code subscription and CyberStrike MCP workflows.
+description: Uses CyberStrike's local knowledge and tools for CTF cryptography, pwn and steganography. Applies when analyzing challenge files, consulting CyberStrike references, or diagnosing its setup. Supports native Claude Code subscription and CyberStrike MCP workflows.
 ---
 
 # CyberStrike for Claude Code
@@ -17,10 +17,11 @@ Before choosing an attack or writing a solver, identify the supplied category an
 | --- | --- | --- |
 | Cryptography | [cryptography.md](references/cryptography.md) | `.cyberstrike/skill/cryptography/ctf-crypto/SKILL.md` |
 | Binary exploitation / pwn | [pwn.md](references/pwn.md) | `.cyberstrike/skill/pwn/ctf-pwn/SKILL.md` |
+| Steganography | [stego.md](references/stego.md) | `.cyberstrike/skill/stego/ctf-stego/SKILL.md` |
 | Web or another installed category | [knowledge.md](references/knowledge.md) | Matching directory under `.cyberstrike/skill` |
 | Setup, broken tools, knowledge inventory | [runtime.md](references/runtime.md) | Dedicated status/list commands; no exploit milestones |
 
-The paths above are relative to the located CyberStrike checkout. A complete build also supplies category skills under its executable's `bin/skills/cryptography` and `bin/skills/pwn`. Use [knowledge.md](references/knowledge.md) for CLI retrieval and missing-resource fallbacks. Load only the references and specialist chapters relevant to the current request.
+The paths above are relative to the located CyberStrike checkout. A complete build also supplies category skills under its executable's `bin/skills/<category>`. Use [knowledge.md](references/knowledge.md) for CLI retrieval and missing-resource fallbacks. Load only the references and specialist chapters relevant to the current request.
 
 ## Solve and verify
 

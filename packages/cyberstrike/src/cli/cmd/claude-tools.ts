@@ -20,7 +20,7 @@ import { HackbrowserTool } from "../../tool/hackbrowser"
 import { launchHackbrowser, stopHackbrowser } from "../../tool/hackbrowser-launcher"
 import { HackbrowserStatus } from "../../session/hackbrowser-status"
 import { Installation } from "../../installation"
-import { CLAUDE_CTF } from "./claude"
+import { CLAUDE_CTF, CLAUDE_PROFILES } from "./claude"
 import { claudePath } from "../../provider/claude-code"
 import { PwnMethodology } from "../../pwn/methodology"
 import { CryptoMethodology } from "../../cryptography/methodology"
@@ -33,7 +33,7 @@ export const ClaudeToolsCommand = cmd({
       .option("model", { type: "string", default: "sonnet", describe: "native Claude Code browser planner model" })
       .option("agent", {
         type: "string",
-        choices: ["cyberstrike", "cryptography", "pwn"] as const,
+        choices: CLAUDE_PROFILES,
         default: "cyberstrike",
         describe: "CyberStrike CTF profile",
       })
@@ -50,7 +50,8 @@ export const ClaudeToolsCommand = cmd({
       const agent = await Agent.get(args.agent)
       if (!agent) throw new Error("The CyberStrike agent is unavailable.")
       const session = await Session.create({ title: `Claude Code ${args.agent} CTF` })
-      const http = ["cryptography", "pwn"].includes(args.agent)
+      const stego = args.agent === "stego"
+      const http = Agent.isLocalCtf(args.agent)
         ? undefined
         : Server.listen({ hostname: "127.0.0.1", port: 0, webUI: false })
       const server = new McpServer(
@@ -62,7 +63,9 @@ export const ClaudeToolsCommand = cmd({
               ? agent.prompt + "\n\n" + (await PwnMethodology.context(Session.root(session.id)))
               : args.agent === "cryptography"
                 ? agent.prompt + "\n\n" + (await CryptoMethodology.context(Session.root(session.id)))
-                : CLAUDE_CTF,
+                : stego
+                  ? agent.prompt
+                  : CLAUDE_CTF,
         },
       )
       // Native Claude supplies file, shell and task tools with its own permission
@@ -88,13 +91,22 @@ export const ClaudeToolsCommand = cmd({
         "list_loaded_tools",
         "hackbrowser",
       ])
+      const stegoTools = new Set([
+        "skill",
+        "stego_inspect",
+        "stego_bytes",
+        "stego_bits",
+        "stego_spectrum",
+        "stego_reference",
+      ])
       const tools = (await ToolRegistry.tools({ providerID: "claude-code", modelID: args.model }, agent)).filter(
-        (tool) => !excluded.has(tool.id),
+        (tool) => !excluded.has(tool.id) && (!stego || stegoTools.has(tool.id)),
       )
       const disabled = PermissionNext.disabled(
         [...tools.map((tool) => tool.id), "hackbrowser", "hackbrowser_status", "hackbrowser_stop"],
         agent.permission,
       )
+      if (stego) for (const name of ["hackbrowser", "hackbrowser_status", "hackbrowser_stop"]) disabled.add(name)
       const browser = await HackbrowserTool.init({ agent })
       const schemas: McpTool[] = tools
         .filter((tool) => !disabled.has(tool.id))

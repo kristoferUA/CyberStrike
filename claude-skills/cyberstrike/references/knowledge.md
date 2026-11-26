@@ -7,9 +7,10 @@ cyberstrike knowledge list
 cyberstrike knowledge search "RSA shared prime" --category cryptography --limit 5
 cyberstrike knowledge search "stack canary ROP" --category pwn --limit 5
 cyberstrike knowledge read overflow-basics --category pwn --start-line 1 --lines 120
+cyberstrike knowledge read triage --category stego
 ```
 
-Choose search terms from the observed construction or primitive. Read the returned topic and line range, widening only when the attack preconditions are incomplete. Record the useful topic and its applicable version/assumptions alongside the experiment. The CLI currently indexes only `cryptography` and `pwn`; confirm a topic with `list` rather than inventing a read identifier.
+Choose search terms from the observed construction, primitive or artifact format. Read the returned topic and line range, widening only when its preconditions are incomplete. Record the useful topic and its applicable assumptions alongside the experiment. The CLI indexes `cryptography`, `pwn` and `stego`. Confirm a topic with `list`.
 
 If the matching MCP tools are already connected, `crypto_reference` or `pwn_reference` provide search/read access. Use the tool's advertised schema rather than guessing namespaced IDs or parameters. Native Read can open the category workflow and specialist skill from the checkout or packaged skill directory.
 
