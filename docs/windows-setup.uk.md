@@ -108,7 +108,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 3. Кладе `hackbrowser-worker.js` поруч із виконуваним файлом.
 4. Встановлює Chromium через Playwright для браузерного інструмента.
 
-Дочекайтеся завершення всіх кроків і повідомлення `Built CyberStrike CTF ...`. Поточна очікувана версія — **`1.1.16-ctf.12`**. Chromium завантажується окремо. Браузери та їх версії пов'язані з версією Playwright. [Документація Playwright](https://playwright.dev/docs/browsers)
+Дочекайтеся завершення всіх кроків і повідомлення `Built CyberStrike CTF ...`. Поточна очікувана версія — **`1.1.16-ctf.11`**. Chromium завантажується окремо. Браузери та їх версії пов'язані з версією Playwright. [Документація Playwright](https://playwright.dev/docs/browsers)
 
 Результат у репозиторії:
 
@@ -126,7 +126,7 @@ packages\cyberstrike\dist-windows\cyberstrike-windows-x64\bin\hackbrowser-worker
 | `-SkipInstall`                      | Залежності вже встановлені за поточним `bun.lock`.            |
 | `-SkipBrowserInstall`               | Chromium уже встановлено або браузер підключається через CDP. |
 | `-ModelsPath 'D:\Data\models.json'` | Є локальний JSON-знімок каталогу models.dev для збірки.       |
-| `-Version '1.1.16-ctf.12'`          | Потрібно явно задати версію локальної збірки.                 |
+| `-Version '1.1.16-ctf.11'`          | Потрібно явно задати версію локальної збірки.                 |
 
 Для першого встановлення виконуйте основну команду без параметрів пропуску. Перед повторною збіркою закрийте процеси, які використовують її `cyberstrike.exe`.
 
@@ -228,8 +228,6 @@ Reply exactly READY. Do not call tools or browse.
 
 Дочекайтеся завершеної відповіді. Після цього можна починати задачу. Програма може виконувати локальні команди та створювати файли в поточній папці.
 
-Для **GPT-6 Luna** у CTF.12 натискайте **Ctrl+T**, доки біля моделі не з'явиться `max`. Для одноразового запиту використовуйте `cyberstrike run -m openai/gpt-6-luna --variant max "Напиши готово"`. [Підтримувані рівні reasoning для Luna](https://developers.openai.com/api/docs/models/gpt-6-luna).
-
 ### Як виконати запуск у CMD
 
 Командний рядок CMD зазвичай показує запрошення `D:\...>`. PowerShell показує `PS D:\...>`.
@@ -296,7 +294,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\script\build-windows.ps1
 .\bin\cyberstrike.cmd --version
 ```
 
-`git status --short` показує локальні зміни. Якщо Git зупинив перемикання гілки або оновлення через них, спочатку збережіть свої зміни. Поточна збірка має суфікс `-ctf.12`.
+`git status --short` показує локальні зміни. Якщо Git зупинив перемикання гілки або оновлення через них, спочатку збережіть свої зміни. Поточна збірка має суфікс `-ctf.11`.
 
 Вхід через ChatGPT зберігається у даних користувача. Повторюйте його, якщо програма повідомляє про недійсне підключення. Оновлення цього форка виконується через Git і повторну збірку; інсталятор upstream встановлює оригінальну версію.
 
